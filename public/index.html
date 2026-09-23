@@ -1,24 +1,142 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Counterpoint POS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="stylesheet" href="./cashier-modern.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counterpoint POS · DB-driven</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    /* ---- identical styles to your original — keep them ---- */
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; width:100%; overflow:hidden; }
+    body { font-family:'Inter', system-ui, sans-serif; background:#f6f9fc; color:#0b1b2b; padding:16px; }
+    .app-shell { width:100%; height:100%; background:#fff; border-radius:32px;
+      box-shadow:0 25px 50px -10px rgba(0,20,30,.15), 0 0 0 1px rgba(0,0,0,.02);
+      display:flex; overflow:hidden; padding:8px; gap:8px; }
+    .sidebar { width:220px; background:#e5f2ec; border-radius:28px; padding:28px 14px;
+      display:flex; flex-direction:column; flex-shrink:0; height:100%; }
+    .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:1.2rem;
+      padding:0 8px 28px 8px; color:#0f2e24; }
+    .brand-mark { background:#0f2e24; color:#fff; width:30px; height:30px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+    .sidebar nav { display:flex; flex-direction:column; gap:4px; flex:1; }
+    .sidebar nav a { display:flex; align-items:center; gap:10px; padding:11px 14px;
+      border-radius:14px; font-size:.9rem; font-weight:500; color:#2b4d40; text-decoration:none; }
+    .sidebar nav a span { font-size:1.15rem; width:22px; text-align:center; color:#3d6b58; }
+    .sidebar nav a.active { background:#fff; color:#0f2e24; box-shadow:0 4px 12px rgba(0,0,0,.02); }
+    .sidebar nav a.active span { color:#0f2e24; }
+    .store-status { background:#ffffffd0; border-radius:18px; padding:14px;
+      display:flex; align-items:center; gap:10px; margin-top:20px; border:1px solid #fff; }
+    .status-dot { width:9px; height:9px; background:#22c55e; border-radius:50%;
+      box-shadow:0 0 0 3px #d1fae5; flex-shrink:0; }
+    .store-status strong { font-size:.85rem; display:block; }
+    .store-status small { font-size:.7rem; color:#4b6b5e; }
+    .main-content { flex:1; padding:20px 24px 24px; overflow-y:auto;
+      display:flex; flex-direction:column; gap:20px; border-radius:28px; min-width:0; height:100%; }
+    .main-content::-webkit-scrollbar { width:6px; }
+    .main-content::-webkit-scrollbar-thumb { background:#cbdcd3; border-radius:10px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; }
+    .eyebrow { font-size:.65rem; font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase; color:#75988a; margin-bottom:2px; }
+    .topbar h1 { font-size:1.6rem; font-weight:600; }
+    .avatar { width:44px; height:44px; border-radius:14px; background:#f0f7f3;
+      border:1px solid #d0e2d8; color:#0f2e24; font-weight:600; font-size:1.1rem;
+      display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    .workspace { display:grid; grid-template-columns:1fr 340px; gap:20px;
+      flex:1; min-height:0; }
+    .catalog-panel { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
+    .section-heading { display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:14px; flex-shrink:0; }
+    .section-heading h2 { font-size:1.25rem; font-weight:600; }
+    .catalog-tools { display:flex; gap:10px; align-items:center; }
+    .search { display:flex; align-items:center; background:#f9fdfb;
+      border:1px solid #e2ece6; border-radius:40px; padding:7px 16px; gap:8px; }
+    .search span { color:#75988a; font-size:.95rem; }
+    .search input { border:none; background:transparent; font-size:.85rem;
+      padding:5px 0; outline:none; width:140px; font-family:'Inter', sans-serif; }
+    .tool-btn { background:#e5f2ec; border:none; padding:9px 16px; border-radius:40px;
+      font-weight:600; font-size:.85rem; color:#0f2e24; cursor:pointer; font-family:'Inter', sans-serif; }
+    .tool-btn.primary { background:#0f2e24; color:#fff; }
+    .tool-btn.primary:hover { background:#1a4638; }
+    .category-row { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; flex-shrink:0; }
+    .category { background:transparent; border:1px solid #e2ece6; padding:7px 18px;
+      border-radius:40px; font-weight:500; font-size:.85rem; color:#2b4d40;
+      cursor:pointer; font-family:'Inter', sans-serif; }
+    .category.active { background:#0f2e24; color:#fff; border-color:#0f2e24; }
+    .product-grid-wrapper { flex:1; overflow-y:auto; min-height:0; padding-right:6px; }
+    .product-grid-wrapper::-webkit-scrollbar { width:6px; }
+    .product-grid-wrapper::-webkit-scrollbar-thumb { background:#cbdcd3; border-radius:10px; }
+    .product-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; padding-bottom:4px; }
+    .product-card { background:#fff; border:1px solid #e9f0ec; border-radius:20px;
+      padding:12px; cursor:pointer; transition:.15s; }
+    .product-card:hover { border-color:#b8d5c8; box-shadow:0 8px 16px rgba(0,40,20,.04); }
+    .product-image { width:100%; aspect-ratio:1/1; background:#f0f7f3;
+      border-radius:14px; margin-bottom:10px; display:flex; align-items:center;
+      justify-content:center; font-size:1.8rem; }
+    .prod-name { font-weight:600; font-size:.85rem; }
+    .prod-meta { display:flex; justify-content:space-between; align-items:center; margin-top:4px; }
+    .prod-price { font-weight:700; color:#0f2e24; font-size:.9rem; }
+    .prod-stock { font-size:.65rem; color:#75988a; background:#f0f7f3;
+      padding:3px 8px; border-radius:20px; }
+    .no-products { grid-column:1/-1; text-align:center; padding:40px 0; color:#75988a; font-size:.9rem; }
+    .cart-panel { background:#f2f9f6; border-radius:24px; padding:20px 18px 18px;
+      display:flex; flex-direction:column; border:1px solid #e2ece6; min-height:0; overflow:hidden; }
+    .cart-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .cart-heading h2 { font-size:1.15rem; font-weight:600; }
+    .clear-btn { background:transparent; border:none; font-size:.78rem; color:#75988a; cursor:pointer; }
+    .cart-items { flex:1; min-height:0; overflow-y:auto; margin-bottom:14px;
+      display:flex; flex-direction:column; gap:10px; }
+    .cart-items::-webkit-scrollbar { width:6px; }
+    .cart-items::-webkit-scrollbar-thumb { background:#cbdcd3; border-radius:10px; }
+    .empty-cart { display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:32px 0; color:#75988a; flex:1; }
+    .empty-cart span { font-size:1.8rem; color:#b8d5c8; }
+    .cart-item { background:#fff; border-radius:14px; padding:10px 12px;
+      display:flex; justify-content:space-between; align-items:center; border:1px solid #e2ece6; }
+    .cart-item-name { font-weight:600; font-size:.82rem; }
+    .cart-item-price { font-size:.75rem; color:#75988a; }
+    .cart-item-actions { display:flex; align-items:center; gap:6px; }
+    .cart-item-actions button { width:26px; height:26px; border-radius:8px;
+      border:1px solid #d0e2d8; background:#fff; font-weight:600; color:#0f2e24; cursor:pointer; }
+    .cart-item-qty { font-weight:600; font-size:.82rem; min-width:18px; text-align:center; }
+    .checkout { border-top:1px solid #d0e2d8; padding-top:14px; }
+    .total-row { display:flex; justify-content:space-between; font-size:.82rem;
+      margin-bottom:6px; color:#2b4d40; }
+    .total-row.muted { color:#75988a; }
+    .grand-total { display:flex; justify-content:space-between; font-size:1.1rem;
+      font-weight:700; margin:10px 0 14px; padding-top:8px; border-top:1px dashed #d0e2d8; }
+    .payment-row { display:flex; gap:6px; margin-bottom:14px; }
+    .payment { flex:1; padding:8px 0; border-radius:30px; border:1px solid #d0e2d8;
+      background:#fff; font-weight:500; font-size:.78rem; color:#2b4d40; cursor:pointer; }
+    .payment.active { background:#0f2e24; color:#fff; border-color:#0f2e24; }
+    .checkout-btn { width:100%; background:#0f2e24; color:#fff; border:none;
+      padding:14px 18px; border-radius:30px; font-weight:600; font-size:.9rem;
+      cursor:pointer; display:flex; justify-content:space-between; }
+    .checkout-btn:hover { background:#1a4638; }
+    @media (max-width:1200px) {
+      .workspace { grid-template-columns:1fr 300px; }
+      .product-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:900px) {
+      .app-shell { flex-direction:column; height:auto; padding:12px; }
+      .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; border-radius:24px; padding:14px; height:auto; }
+      .sidebar nav { flex-direction:row; flex-wrap:wrap; }
+      .store-status { margin-top:0; margin-left:auto; }
+      .workspace { grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
       <nav>
-        <a class="active" href="./"><span>⌁</span> New sale</a>
-        <a href="./products.html"><span>□</span> Products</a>
-        <a href="./sales.html"><span>↗</span> Sales history</a>
-        <a href="./inventory.html"><span>⚙</span> Admin</a>
+        <a class="active" href="/"><span>⌁</span> New sale</a>
+        <a href="products.html"><span>□</span> Products</a>
+        <a href="sales.html"><span>↗</span> Sales history</a>
+        <a href="admin.html"><span>⚙</span> Admin</a>
       </nav>
       <div class="store-status">
         <span class="status-dot"></span>
@@ -32,25 +150,25 @@
         <button class="avatar" id="login-btn" title="Admin login">M</button>
       </header>
 
-      <section class="stats" id="dashboard"></section>
-
       <section class="workspace">
         <div class="catalog-panel">
           <div class="section-heading">
             <div><p class="eyebrow">CATALOG</p><h2>Build an order</h2></div>
             <div class="catalog-tools">
-              <label class="search"><span>⌕</span><input id="search" placeholder="Search products" autocomplete="off" /></label>
+              <label class="search"><span>⌕</span>
+                <input id="search" placeholder="Search products" autocomplete="off" />
+              </label>
               <button class="tool-btn primary" id="add-item-btn">+ Add item</button>
             </div>
           </div>
-          <div class="category-row">
-            <button class="category active" data-category="All">All items</button>
-            <button class="category" data-category="Coffee">Coffee</button>
-            <button class="category" data-category="Tea">Tea</button>
-            <button class="category" data-category="Bakery">Bakery</button>
-            <button class="category" data-category="Food">Food</button>
+
+          <div class="category-row" id="category-row"></div>
+
+          <div class="product-grid-wrapper">
+            <div class="product-grid" id="products">
+              <div class="no-products">Loading products…</div>
+            </div>
           </div>
-          <div class="product-grid" id="products"></div>
         </div>
 
         <aside class="cart-panel">
@@ -58,9 +176,29 @@
             <div><p class="eyebrow">CURRENT ORDER</p><h2>Order</h2></div>
             <button class="clear-btn" id="clear-cart">Clear</button>
           </div>
+
           <div class="cart-items" id="cart-items">
-            <div class="empty-cart"><span>+</span><p>Your order is empty</p><small>Select an item to get started</small></div>
+            <div class="empty-cart">
+              <span>+</span>
+              <p>Your order is empty</p>
+              <small>Select an item to get started</small>
+            </div>
           </div>
+
+
+          <div class="modal-backdrop" id="login-modal">
+    <form class="modal" id="login-form">
+      <div class="modal-heading">
+        <div><p class="eyebrow">SECURITY</p><h2>Admin login</h2></div>
+        <button type="button" class="modal-close" data-close-modal="login-modal">×</button>
+      </div>
+      <label>Username<input name="username" required value="admin" /></label>
+      <label>Password<input name="password" required type="password" /></label>
+      <button class="checkout-btn" type="submit">Sign in <span>→</span></button>
+      <p class="muted">Default: admin / admin123</p>
+    </form>
+  </div>
+
           <div class="checkout">
             <div class="total-row"><span>Subtotal</span><strong id="subtotal">$0.00</strong></div>
             <div class="total-row muted"><span>Tax</span><span id="tax">$0.00</span></div>
@@ -74,48 +212,178 @@
           </div>
         </aside>
       </section>
-
-      <section class="history">
-        <div class="section-heading">
-          <div><p class="eyebrow">ACTIVITY</p><h2>Recent sales</h2></div>
-          <span class="live-label"><span class="status-dot"></span> Live</span>
-        </div>
-        <div class="sales-table" id="sales-table"></div>
-      </section>
     </main>
   </div>
 
-  <div class="modal-backdrop" id="product-modal">
-    <form class="modal" id="product-form">
-      <div class="modal-heading">
-        <div><p class="eyebrow">INVENTORY</p><h2>Add new item</h2></div>
-        <button type="button" class="modal-close" data-close-modal="product-modal">×</button>
-      </div>
-      <label>SKU / barcode<input name="sku" required placeholder="e.g. ESP-007" /></label>
-      <label>Item name<input name="name" required placeholder="e.g. Iced Mocha" /></label>
-      <div class="form-row">
-        <label>Category<select name="category"><option>Coffee</option><option>Tea</option><option>Bakery</option><option>Food</option><option>Other</option></select></label>
-        <label>Price<input name="price" required min="0" step="0.01" type="number" placeholder="0.00" /></label>
-        <label>Stock<input name="stock" required min="0" step="1" type="number" placeholder="0" /></label>
-      </div>
-      <button class="checkout-btn" type="submit">Save item <span>→</span></button>
-    </form>
-  </div>
+  <!-- ============================================================
+       FRONTEND SCRIPT — fetches from Express API (works on Render)
+       ============================================================ -->
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const EMOJI = { Coffee:'☕', Tea:'🍵', Bakery:'🥐', Food:'🥪', Other:'📦' };
 
-  <div class="modal-backdrop" id="login-modal">
-    <form class="modal" id="login-form">
-      <div class="modal-heading">
-        <div><p class="eyebrow">SECURITY</p><h2>Admin login</h2></div>
-        <button type="button" class="modal-close" data-close-modal="login-modal">×</button>
-      </div>
-      <label>Username<input name="username" required value="admin" /></label>
-      <label>Password<input name="password" required type="password" /></label>
-      <button class="checkout-btn" type="submit">Sign in <span>→</span></button>
-      <p class="muted">Default: admin / admin123</p>
-    </form>
-  </div>
+    let allProducts = [];
+    let activeCategory = 'All';
+    let cart = [];
+    let paymentMethod = 'Cash';
+    let taxRate = 8;
 
-  <div class="toast" id="toast"></div>
-  <script src="./app.js"></script>
+    /* ---------- Load products + settings from API ---------- */
+    async function loadProducts() {
+      try {
+        const [productsRes, settingsRes] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/settings')
+        ]);
+
+        if (!productsRes.ok) throw new Error('API returned ' + productsRes.status);
+
+        allProducts = await productsRes.json();
+        const settings = await settingsRes.json();
+        taxRate = settings.taxRate || 8;
+
+        renderCategories();
+        renderProducts();
+      } catch (e) {
+        console.error('Failed to load products:', e);
+        $('#products').innerHTML = `<div class="no-products">Failed to load products: ${e.message}</div>`;
+      }
+    }
+
+    /* ---------- Categories ---------- */
+    function renderCategories() {
+      const cats = ['All', ...new Set(allProducts.map(p => p.category))];
+      $('#category-row').innerHTML = cats.map(c => `
+        <button class="category${c === activeCategory ? ' active' : ''}" data-cat="${c}">
+          ${c === 'All' ? 'All items' : c}
+        </button>`).join('');
+
+      document.querySelectorAll('.category').forEach(btn => {
+        btn.onclick = () => {
+          activeCategory = btn.dataset.cat;
+          renderCategories();
+          renderProducts();
+        };
+      });
+    }
+
+    /* ---------- Products ---------- */
+    function renderProducts() {
+      const q = $('#search').value.trim().toLowerCase();
+      const list = allProducts.filter(p => {
+        const okCat = activeCategory === 'All' || p.category === activeCategory;
+        const okQ = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+        return okCat && okQ;
+      });
+
+      if (!list.length) {
+        $('#products').innerHTML = `<div class="no-products">No products match your filter.</div>`;
+        return;
+      }
+
+      $('#products').innerHTML = list.map(p => `
+        <div class="product-card" data-id="${p.id}">
+          <div class="product-image">${EMOJI[p.category] || '📦'}</div>
+          <div class="prod-name">${p.name}</div>
+          <div class="prod-meta">
+            <span class="prod-price">$${Number(p.price).toFixed(2)}</span>
+            <span class="prod-stock">${p.stock} left</span>
+          </div>
+        </div>`).join('');
+
+      document.querySelectorAll('.product-card').forEach(card => {
+        card.onclick = () => addToCart(Number(card.dataset.id));
+      });
+    }
+
+    /* ---------- Cart ---------- */
+    function addToCart(id) {
+      const p = allProducts.find(x => x.id === id);
+      if (!p) return;
+      const existing = cart.find(i => i.id === id);
+      if (existing) existing.qty++;
+      else cart.push({ id: p.id, name: p.name, price: Number(p.price), qty: 1 });
+      renderCart();
+    }
+
+    function changeQty(id, delta) {
+      const item = cart.find(i => i.id === id);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+      renderCart();
+    }
+
+    function renderCart() {
+      if (!cart.length) {
+        $('#cart-items').innerHTML = `
+          <div class="empty-cart">
+            <span>+</span><p>Your order is empty</p>
+            <small>Select an item to get started</small>
+          </div>`;
+      } else {
+        $('#cart-items').innerHTML = cart.map(i => `
+          <div class="cart-item">
+            <div>
+              <div class="cart-item-name">${i.name}</div>
+              <div class="cart-item-price">$${i.price.toFixed(2)}</div>
+            </div>
+            <div class="cart-item-actions">
+              <button data-dec="${i.id}">−</button>
+              <span class="cart-item-qty">${i.qty}</span>
+              <button data-inc="${i.id}">+</button>
+            </div>
+          </div>`).join('');
+
+        document.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => changeQty(+b.dataset.dec, -1));
+        document.querySelectorAll('[data-inc]').forEach(b => b.onclick = () => changeQty(+b.dataset.inc, +1));
+      }
+
+      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      const tax = subtotal * (taxRate / 100);
+      $('#subtotal').textContent = `$${subtotal.toFixed(2)}`;
+      $('#tax').textContent      = `$${tax.toFixed(2)}`;
+      $('#total').textContent    = `$${(subtotal + tax).toFixed(2)}`;
+    }
+
+    /* ---------- Checkout ---------- */
+    $('#checkout-btn').onclick = async () => {
+      if (!cart.length) return alert('Cart is empty');
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentMethod,
+            items: cart.map(i => ({ productId: i.id, quantity: i.qty })),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Checkout failed');
+
+        alert(`✅ Sale #${data.saleId} complete — $${Number(data.total).toFixed(2)}`);
+        cart = [];
+        renderCart();
+        loadProducts();  // refresh stock
+      } catch (e) {
+        alert('❌ ' + e.message);
+      }
+    };
+
+    /* ---------- UI events ---------- */
+    $('#clear-cart').onclick = () => { cart = []; renderCart(); };
+    document.querySelectorAll('.payment').forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll('.payment').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        paymentMethod = b.dataset.payment;
+      };
+    });
+    $('#search').addEventListener('input', renderProducts);
+    $('#login-btn').onclick = () => { window.location.href = '/admin.html'; };
+
+    /* ---------- Boot ---------- */
+    loadProducts();
+  </script>
 </body>
 </html>
