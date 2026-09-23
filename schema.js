@@ -89,8 +89,12 @@ export async function initDatabase() {
   console.log('✅ Schema initialized on Turso');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  initDatabase()
-    .then(() => process.exit(0))
-    .catch((e) => { console.error('❌', e); process.exit(1); });
-}
+initDatabase()
+  .then(() => {
+    console.log('✅ Done');
+    process.exit(0);
+  })
+  .catch((e) => {
+    console.error('❌ Failed:', e.message || e);
+    process.exit(1);
+  });

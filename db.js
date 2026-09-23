@@ -1,7 +1,14 @@
+import { setGlobalDispatcher, Agent } from 'undici';
 import { createClient } from '@libsql/client';
 import 'dotenv/config';
 
-// Connect to Turso Cloud
+// Increase connect timeout from default 10s to 30s
+setGlobalDispatcher(new Agent({
+  connectTimeout: 30000,
+  keepAliveTimeout: 60000,
+  keepAliveMaxTimeout: 120000,
+}));
+
 export const db = createClient({
   url: process.env.TURSO_DATABASE_URL,
   authToken: process.env.TURSO_AUTH_TOKEN,
