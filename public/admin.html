@@ -30,6 +30,16 @@
     .login-box{background:#fff;border:1px solid #dfe7df;padding:30px;width:min(390px,calc(100% - 32px));box-shadow:0 4px 18px rgba(20,52,38,0.06);border-radius:12px}
     .login-box h1{font:600 24px 'Space Grotesk';margin:0 0 6px}
     .login-box p{color:#718078;font-size:12px;margin-bottom:22px}
+
+    /* Hide all sections by default — JS shows the active one */
+.admin-section { display: none; }
+.admin-section.active { display: block; }
+
+/* Wide cards should still span */
+.admin-card.wide.active { grid-column: 1/-1; }
+
+/* When only one section is active, admin-grid becomes single column */
+.admin-grid.single-mode { grid-template-columns: 1fr; }
     @media(max-width:700px){.admin-grid{grid-template-columns:1fr}.admin-card.wide{grid-column:auto}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}}
   </style>
 </head>
@@ -61,26 +71,157 @@
         <div><p class="eyebrow">ADMINISTRATION</p><h1>Manage your POS.</h1></div>
         <a class="tool-btn" href="/">Back to sale</a>
       </header>
-      <nav class="admin-nav">
-        <a class="active" href="#inventory">Inventory</a>
-        <a href="#customers">Customers</a>
-        <a href="#suppliers">Suppliers</a>
-        <a href="#expenses">Expenses</a>
-        <a href="#reports">Reports</a>
-        <a href="#settings">Settings</a>
-      </nav>
-      <div class="admin-grid">
-       <section class="admin-card" id="inventory"><h2>Inventory</h2><form class="form-grid" id="product-form"><label>SKU / barcode<input name="sku" required></label><label>Product name<input name="name" required></label><label>Category<select name="category"><option>Coffee</option><option>Tea</option><option>Bakery</option><option>Food</option><option>Other</option></select></label><label>Price<input name="price" required type="number" min="0" step="0.01"></label><label>Was price (optional)<input name="compare_price" type="number" min="0" step="0.01" value="0" placeholder="Original price"></label><label>Cost price (optional)<input name="cost_price" type="number" min="0" step="0.01" value="0" placeholder="Your cost"></label><label>Reorder level<input name="reorder_level" type="number" min="0" value="5" placeholder="Alert when stock hits"></label><label>Stock<input name="stock" required type="number" min="0"></label><div class="form-actions"><button class="tool-btn primary" type="submit">Add product</button><button class="tool-btn" type="reset">Clear</button></div></form><div class="admin-table" id="product-list"></div></section>
-        <section class="admin-card" id="customers"><h2>Customer accounts</h2><form class="form-grid" id="customer-form"><label class="full">Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label class="full">Notes<input name="notes"></label><div class="form-actions"><button class="tool-btn primary">Add customer</button></div></form><div class="admin-table" id="customer-list"></div></section>
-        <section class="admin-card" id="suppliers"><h2>Supplier management</h2><form class="form-grid" id="supplier-form"><label class="full">Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label class="full">Notes<input name="notes"></label><div class="form-actions"><button class="tool-btn primary">Add supplier</button></div></form><div class="admin-table" id="supplier-list"></div></section>
-        <section class="admin-card" id="expenses"><h2>Expense tracking</h2><form class="form-grid" id="expense-form"><label class="full">Description<input name="description" required></label><label>Amount<input name="amount" required type="number" min="0" step="0.01"></label><label>Category<input name="category" required placeholder="Rent, supplies..."></label><div class="form-actions"><button class="tool-btn primary">Record expense</button></div></form><div class="admin-table" id="expense-list"></div></section>
-        <section class="admin-card wide" id="reports"><h2>Daily and monthly reports</h2><div class="report-box"><label>From<input id="report-from" type="date"></label><label>To<input id="report-to" type="date"></label><button class="tool-btn primary" id="report-btn">Run report</button></div><div class="report-box" id="report-results"></div></section>
-        <section class="admin-card" id="settings"><h2>Tax configuration</h2><form class="form-grid" id="settings-form"><label>Store name<input name="storeName" required></label><label>Tax rate %<input name="taxRate" required type="number" min="0" step="0.01"></label><label>Currency<input name="currency" required></label><div class="form-actions"><button class="tool-btn primary">Save settings</button></div></form></section>
-        <section class="admin-card"><h2>Backup and restore</h2><p class="muted">Download a JSON snapshot of your Turso database.</p><div class="form-actions"><button class="tool-btn primary" id="backup-btn">Download backup</button><label class="tool-btn">Restore backup<input id="restore-file" type="file" accept=".json" hidden></label></div></section>
+      <nav class="admin-nav" id="admin-nav">
+  <a class="active" href="#" data-tab="inventory">Inventory</a>
+  <a href="#" data-tab="customers">Customers</a>
+  <a href="#" data-tab="suppliers">Suppliers</a>
+  <a href="#" data-tab="expenses">Expenses</a>
+  <a href="#" data-tab="reports">Reports</a>
+  <a href="#" data-tab="settings">Settings</a>
+  <a href="#" data-tab="backup">Backup</a>
+</nav>
+            <div class="admin-grid">
+        <section class="admin-card admin-section active" data-section="inventory" id="inventory">
+          <h2>Inventory</h2>
+          <form class="form-grid" id="product-form">
+            <label>SKU / barcode<input name="sku" required></label>
+            <label>Product name<input name="name" required></label>
+            <label>Category
+              <select name="category">
+                <option>Coffee</option>
+                <option>Tea</option>
+                <option>Bakery</option>
+                <option>Food</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>Price<input name="price" required type="number" min="0" step="0.01"></label>
+            <label>Was price (optional)<input name="compare_price" type="number" min="0" step="0.01" value="0" placeholder="Original price"></label>
+            <label>Cost price (optional)<input name="cost_price" type="number" min="0" step="0.01" value="0" placeholder="Your cost"></label>
+            <label>Reorder level<input name="reorder_level" type="number" min="0" value="5" placeholder="Alert when stock hits"></label>
+            <label>Stock<input name="stock" required type="number" min="0"></label>
+            <div class="form-actions">
+              <button class="tool-btn primary" type="submit">Add product</button>
+              <button class="tool-btn" type="reset">Clear</button>
+            </div>
+          </form>
+          <div class="admin-table" id="product-list"></div>
+        </section>
+
+        <section class="admin-card admin-section" data-section="customers" id="customers">
+          <h2>Customer accounts</h2>
+          <form class="form-grid" id="customer-form">
+            <label class="full">Name<input name="name" required></label>
+            <label>Phone<input name="phone"></label>
+            <label>Email<input name="email" type="email"></label>
+            <label class="full">Notes<input name="notes"></label>
+            <div class="form-actions"><button class="tool-btn primary">Add customer</button></div>
+          </form>
+          <div class="admin-table" id="customer-list"></div>
+        </section>
+
+        <section class="admin-card admin-section" data-section="suppliers" id="suppliers">
+          <h2>Supplier management</h2>
+          <form class="form-grid" id="supplier-form">
+            <label class="full">Name<input name="name" required></label>
+            <label>Phone<input name="phone"></label>
+            <label>Email<input name="email" type="email"></label>
+            <label class="full">Notes<input name="notes"></label>
+            <div class="form-actions"><button class="tool-btn primary">Add supplier</button></div>
+          </form>
+          <div class="admin-table" id="supplier-list"></div>
+        </section>
+
+        <section class="admin-card admin-section" data-section="expenses" id="expenses">
+          <h2>Expense tracking</h2>
+          <form class="form-grid" id="expense-form">
+            <label class="full">Description<input name="description" required></label>
+            <label>Amount<input name="amount" required type="number" min="0" step="0.01"></label>
+            <label>Category<input name="category" required placeholder="Rent, supplies..."></label>
+            <div class="form-actions"><button class="tool-btn primary">Record expense</button></div>
+          </form>
+          <div class="admin-table" id="expense-list"></div>
+        </section>
+
+        <section class="admin-card admin-section wide" data-section="reports" id="reports">
+          <h2>Daily and monthly reports</h2>
+          <div class="report-box">
+            <label>From<input id="report-from" type="date"></label>
+            <label>To<input id="report-to" type="date"></label>
+            <button class="tool-btn primary" id="report-btn">Run report</button>
+          </div>
+          <div class="report-box" id="report-results"></div>
+        </section>
+
+        <section class="admin-card admin-section" data-section="settings" id="settings">
+          <h2>Tax configuration</h2>
+          <form class="form-grid" id="settings-form">
+            <label>Store name<input name="storeName" required></label>
+            <label>Tax rate %<input name="taxRate" required type="number" min="0" step="0.01"></label>
+            <label>Currency<input name="currency" required></label>
+            <label>Allow negative stock
+              <select name="allowNegativeStock">
+                <option value="false">No (block overselling)</option>
+                <option value="true">Yes (allow overselling)</option>
+              </select>
+            </label>
+            <div class="form-actions"><button class="tool-btn primary">Save settings</button></div>
+          </form>
+        </section>
+
+        <section class="admin-card admin-section" data-section="backup" id="backup">
+          <h2>Backup and restore</h2>
+          <p class="muted">Download a JSON snapshot of your Turso database.</p>
+          <div class="form-actions">
+            <button class="tool-btn primary" id="backup-btn">Download backup</button>
+            <label class="tool-btn">Restore backup<input id="restore-file" type="file" accept=".json" hidden></label>
+          </div>
+        </section>
       </div>
     </main>
   </div>
   <div class="toast" id="toast"></div>
-  <script src="/admin.js"></script>
+  <script src="/admin.js">
+
+    /* ============================================================
+   ADMIN TAB SWITCHING
+   ============================================================ */
+function setupTabs() {
+  const navLinks = document.querySelectorAll('#admin-nav a');
+  const sections = document.querySelectorAll('.admin-section');
+  const grid = document.querySelector('.admin-grid');
+
+  if (!navLinks.length) return;
+
+  function activateTab(name) {
+    // Update nav active state
+    navLinks.forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
+
+    // Show matching section, hide others
+    let found = false;
+    sections.forEach((sec) => {
+      const match = sec.dataset.section === name;
+      sec.classList.toggle('active', match);
+      if (match) found = true;
+    });
+
+    // If tab has no matching section (shouldn't happen), fall back to inventory
+    if (!found && name !== 'inventory') return activateTab('inventory');
+
+    // Single column layout when only one section is shown
+    if (grid) grid.classList.add('single-mode');
+  }
+
+  navLinks.forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      activateTab(link.dataset.tab);
+    });
+  });
+
+  // Default: inventory tab
+  activateTab('inventory');
+}
+  </script>
 </body>
 </html>
