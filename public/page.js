@@ -37,11 +37,13 @@ async function login(event) {
       body: JSON.stringify(formPayload(event.target)),
     });
     sessionStorage.setItem('pos-admin', 'true');
-    $('#login').hidden = true;
+    const loginScreen = document.getElementById('login');
+    if (loginScreen) loginScreen.hidden = true;
     loadPage();
-  } catch (e) { toast(e.message); }
+  } catch (e) {
+    toast(e.message || 'Login failed');
+  }
 }
-
 function form(url, message, reload = loadPage) {
   return async (event) => {
     event.preventDefault();
@@ -283,19 +285,135 @@ async function settings() {
 }
 
 async function products() {
-  const data = await api('/api/products');
-  $('#content').innerHTML = `<section class="page-card"><h2>Products</h2><div class="table">${data.map((i) => `<div class="row"><span>${i.name}<small>${i.sku}</small></span><span>${i.category}</span><span>${money(i.price)}</span><span>${i.stock} in stock</span></div>`).join('')}</div></section>`;
+  let allProducts = [];
+  let activeCat = 'All';
+  let searchTerm = '';
+
+  const renderMetrics = () => {
+    const total = allProducts.length;
+    const lowCount = allProducts.filter((p) => p.stock > 0 && p.stock <= (p.reorder_level || 5)).length;
+    const outCount = allProducts.filter((p) => p.stock <= 0).length;
+    const totalValue = allProducts.reduce((s, p) => s + Number(p.price) * Number(p.stock), 0);
+    $('#metrics').innerHTML = `
+      <div class="metric"><span>Total SKUs</span><strong>${total}</strong></div>
+      <div class="metric"><span>Stock Value</span><strong>${money(totalValue)}</strong></div>
+      <div class="metric warn"><span>Low Stock</span><strong>${lowCount}</strong></div>
+      <div class="metric danger"><span>Out of Stock</span><strong>${outCount}</strong></div>
+    `;
+  };
+
+  const renderCategories = () => {
+    const cats = ['All', ...new Set(allProducts.map((p) => p.category).filter(Boolean))];
+    $('#category-row').innerHTML = cats
+      .map((c) => `<button class="chip${c === activeCat ? ' active' : ''}" data-cat="${c}">${c}</button>`)
+      .join('');
+    $$('.chip').forEach((btn) => {
+      btn.onclick = () => {
+        activeCat = btn.dataset.cat;
+        renderCategories();
+        renderTable();
+      };
+    });
+  };
+
+  const renderTable = () => {
+    const q = searchTerm.toLowerCase();
+    const filtered = allProducts.filter((p) => {
+      const okCat = activeCat === 'All' || p.category === activeCat;
+      const okQ = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+      return okCat && okQ;
+    });
+
+    $('#result-count').textContent = `${filtered.length} item${filtered.length === 1 ? '' : 's'}`;
+
+    if (!filtered.length) {
+      $('#content').innerHTML = '<div class="empty-state">No products match your filter.</div>';
+      return;
+    }
+
+    $('#content').innerHTML =
+      '<div class="row head"><span>Product</span><span>Category</span><span>Price</span><span>Stock</span><span>Status</span></div>' +
+      filtered.map((p) => {
+        const low = p.stock > 0 && p.stock <= (p.reorder_level || 5);
+        const out = p.stock <= 0;
+        const stockPill = out
+          ? '<span class="pill out">Out</span>'
+          : low
+          ? '<span class="pill low">Low</span>'
+          : '<span class="pill ok">In Stock</span>';
+        const compare = Number(p.compare_price) > Number(p.price)
+          ? `<span class="compare">${money(p.compare_price)}</span>`
+          : '';
+        return `
+          <div class="row">
+            <span class="name">${p.name}<small>${p.sku}</small></span>
+            <span><span class="pill cat">${p.category || 'Other'}</span></span>
+            <span class="price">${money(p.price)}${compare}</span>
+            <span>${p.stock} units<small>Reorder at ${p.reorder_level || 5}</small></span>
+            <span>${stockPill}</span>
+          </div>`;
+      }).join('');
+  };
+
+  // Boot
+  allProducts = await api('/api/products');
+  renderMetrics();
+  renderCategories();
+  renderTable();
+
+  $('#search').addEventListener('input', (e) => {
+    searchTerm = e.target.value.trim();
+    renderTable();
+  });
 }
 
 async function sales() {
-  const data = await api('/api/admin/sales');
-  $('#content').innerHTML = `<section class="page-card"><h2>Sales history</h2><div class="filters"><label>From<input id="from" type="date"></label><label>To<input id="to" type="date"></label><button class="tool-btn primary" id="run">Filter</button></div><div id="sales-table"></div></section>`;
   const render = (r) => {
-    $('#sales-table').innerHTML = `<div class="summary">${r.orders} orders · ${money(r.total)}</div>` +
-      r.sales.map((i) => `<div class="row"><span>Receipt #${i.id}</span><span>${i.payment_method}</span><span>${new Date(i.sold_at).toLocaleString()}</span><span>${money(i.total)}</span></div>`).join('');
+    // Metrics
+    const avg = r.orders ? r.total / r.orders : 0;
+    const cardCount = r.sales.filter((s) => s.payment_method === 'Card').length;
+    const cashCount = r.sales.filter((s) => s.payment_method === 'Cash').length;
+    $('#metrics').innerHTML = `
+      <div class="metric"><span>Total Sales</span><strong>${money(r.total)}</strong></div>
+      <div class="metric"><span>Orders</span><strong>${r.orders}</strong></div>
+      <div class="metric"><span>Average Order</span><strong>${money(avg)}</strong></div>
+      <div class="metric"><span>Payment Split</span><strong style="font-size:1rem">${cashCount} cash · ${cardCount} card</strong></div>
+    `;
+
+    // Table
+    const pillClass = (m) => {
+      const x = (m || '').toLowerCase();
+      if (x === 'cash') return 'cash';
+      if (x === 'card') return 'card';
+      if (x === 'mobile') return 'mobile';
+      return '';
+    };
+
+    if (!r.sales.length) {
+      $('#sales-table').innerHTML = '<div class="empty-state">No sales in this period.</div>';
+      return;
+    }
+
+    $('#sales-table').innerHTML =
+      '<div class="row head"><span>Receipt</span><span>Payment</span><span>Date & Time</span><span>Total</span></div>' +
+      r.sales.map((i) => `
+        <div class="row">
+          <span class="receipt">#${String(i.id).padStart(4, '0')}${i.status === 'voided' ? ' <span class="pill voided">Voided</span>' : ''}</span>
+          <span><span class="pill ${pillClass(i.payment_method)}">${i.payment_method}</span></span>
+          <span>${new Date(i.sold_at).toLocaleString()}<small>${i.status === 'voided' ? 'Voided at ' + new Date(i.voided_at).toLocaleString() : 'Completed'}</small></span>
+          <span class="total">${money(i.total)}</span>
+        </div>`).join('');
   };
+
+  const data = await api('/api/admin/sales');
   render(data);
-  $('#run').addEventListener('click', async () => render(await api(`/api/admin/sales?from=${$('#from').value}&to=${$('#to').value}`)));
+
+  $('#run').addEventListener('click', async () => {
+    const from = $('#from').value;
+    const to = $('#to').value;
+    const url = from && to ? `/api/admin/sales?from=${from}&to=${to}` : '/api/admin/sales';
+    render(await api(url));
+  });
 }
 
 async function loadPage() {
@@ -312,8 +430,18 @@ async function loadPage() {
   await handlers[page]();
 }
 
-if ($('#login-form')) {
-  $('#login-form').addEventListener('submit', login);
-  if (sessionStorage.getItem('pos-admin') === 'true') $('#login').hidden = true;
+/* ============================================================
+   BOOT
+   ============================================================ */
+const loginForm = document.getElementById('login-form');
+const loginScreen = document.getElementById('login');
+
+if (loginForm) {
+  loginForm.addEventListener('submit', login);
 }
-loadPage().catch((e) => toast(e.message));
+
+// Only load page data if user is logged in, or if there's no login screen
+if (!loginScreen || sessionStorage.getItem('pos-admin') === 'true') {
+  if (loginScreen) loginScreen.hidden = true;
+  loadPage().catch((e) => toast(e.message));
+}

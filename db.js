@@ -14,20 +14,38 @@ export const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+// Convert BigInt values to Number so JSON.stringify doesn't crash
+function safe(value) {
+  if (typeof value === 'bigint') return Number(value);
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.map(safe);
+  if (typeof value === 'object') {
+    const out = {};
+    for (const k of Object.keys(value)) out[k] = safe(value[k]);
+    return out;
+  }
+  return value;
+}
+
 export async function query(sql, params = []) {
   const result = await db.execute({ sql, args: params });
-  return result.rows;
+  return safe(result.rows);
 }
 
 export async function get(sql, params = []) {
   const result = await db.execute({ sql, args: params });
-  return result.rows[0] || null;
+  const row = result.rows[0];
+  return row ? safe(row) : null;
 }
 
 export async function run(sql, params = []) {
   const result = await db.execute({ sql, args: params });
   return {
-    lastInsertRowid: result.lastInsertRowid,
-    rowsAffected: result.rowsAffected,
+    lastInsertRowid: typeof result.lastInsertRowid === 'bigint'
+      ? Number(result.lastInsertRowid)
+      : result.lastInsertRowid,
+    rowsAffected: typeof result.rowsAffected === 'bigint'
+      ? Number(result.rowsAffected)
+      : result.rowsAffected,
   };
 }

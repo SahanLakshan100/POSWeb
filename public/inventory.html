@@ -1,136 +1,207 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inventory | Counterpoint</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <style>
-    body { padding: 30px; }
-    .shell { max-width: 1200px; margin: auto; }
-    .page-card { background:#fff; border:1px solid #e3e8e1; padding:24px; border-radius:14px; margin-bottom:20px; }
-    .page-card h2 { font: 600 19px 'Inter', system-ui, sans-serif; margin:0 0 18px; }
-    .tabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-    .tab { background:#f0f7f3; border:1px solid #e2ece6; padding:9px 18px; border-radius:10px;
-      font-size:.82rem; font-weight:600; color:#0f2e24; cursor:pointer; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; width:100%; }
+    body { font-family:'Inter', system-ui, sans-serif; background:#f6f9fc; color:#0b1b2b; padding:12px; }
+    .app-shell { width:100%; min-height:calc(100vh - 24px); background:#fff; border-radius:24px;
+      box-shadow:0 25px 50px -10px rgba(0,20,30,.15); display:flex; overflow:hidden; padding:8px; gap:8px; }
+    .sidebar { width:200px; background:#e5f2ec; border-radius:20px; padding:22px 12px;
+      display:flex; flex-direction:column; flex-shrink:0; }
+    .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:1.1rem;
+      padding:0 8px 22px 8px; color:#0f2e24; }
+    .brand-mark { background:#0f2e24; color:#fff; width:28px; height:28px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .sidebar nav { display:flex; flex-direction:column; gap:3px; flex:1; }
+    .sidebar nav a { display:flex; align-items:center; gap:9px; padding:9px 12px;
+      border-radius:12px; font-size:.85rem; font-weight:500; color:#2b4d40; text-decoration:none; }
+    .sidebar nav a span { font-size:1.05rem; width:20px; text-align:center; color:#3d6b58; }
+    .sidebar nav a.active { background:#fff; color:#0f2e24; }
+    .store-status { background:#fff; border-radius:14px; padding:10px;
+      display:flex; align-items:center; gap:8px; margin-top:16px; }
+    .status-dot { width:8px; height:8px; background:#22c55e; border-radius:50%; flex-shrink:0; }
+    .store-status strong { font-size:.75rem; display:block; }
+    .store-status small { font-size:.65rem; color:#4b6b5e; }
+    .main-content { flex:1; padding:14px 18px 18px; display:flex; flex-direction:column;
+      gap:14px; min-width:0; overflow-y:auto; }
+    .main-content::-webkit-scrollbar { width:6px; }
+    .main-content::-webkit-scrollbar-thumb { background:#cbdcd3; border-radius:10px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; }
+    .eyebrow { font-size:.6rem; font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase; color:#75988a; margin-bottom:2px; }
+    .topbar h1 { font-size:1.4rem; font-weight:600; }
+    .topbar .actions { display:flex; gap:8px; }
+    .topbar .actions a { padding:9px 16px; border-radius:30px; font-size:.78rem;
+      font-weight:600; text-decoration:none; }
+    .topbar .actions a.primary { background:#0f2e24; color:#fff; }
+    .topbar .actions a.secondary { background:#f0f7f3; color:#0f2e24; }
+
+    .metric-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+    .metric { background:#f2f9f6; border-radius:16px; padding:18px 20px;
+      border:1px solid #e2ece6; }
+    .metric span { display:block; font-size:.68rem; color:#75988a;
+      text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .metric strong { display:block; font-size:1.5rem; margin-top:6px; font-weight:700; }
+    .metric.warn strong { color:#c56135; }
+    .metric.danger strong { color:#c53030; }
+
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; }
+    .tab { background:#f0f7f3; border:1px solid #e2ece6; padding:9px 18px; border-radius:30px;
+      font-size:.78rem; font-weight:600; color:#0f2e24; cursor:pointer; font-family:inherit; }
     .tab.active { background:#0f2e24; color:#fff; border-color:#0f2e24; }
+
+    .page-card { background:#fff; border-radius:20px; padding:22px;
+      border:1px solid #e9f0ec; }
+    .page-card h2 { font-size:1.1rem; font-weight:600; margin-bottom:16px; }
+    .page-card p.hint { font-size:.78rem; color:#75988a; margin-bottom:16px; }
+
     .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-    .form-grid label { display:grid; gap:5px; font-size:.72rem; color:#75988a; font-weight:500; }
+    .form-grid label { display:grid; gap:5px; font-size:.72rem; color:#75988a; font-weight:600;
+      text-transform:uppercase; letter-spacing:.04em; }
     .form-grid input, .form-grid select { border:1px solid #d0e2d8; padding:10px 12px;
-      border-radius:8px; font-size:.85rem; font-family:inherit; outline:none; background:#fff; }
+      border-radius:10px; font-size:.85rem; font-family:inherit; outline:none; background:#fff; }
     .form-grid input:focus, .form-grid select:focus { border-color:#0f2e24; }
     .form-grid .full { grid-column:1/-1; }
-    .btn { padding:10px 18px; border:none; border-radius:8px; font-weight:600;
-      font-size:.82rem; cursor:pointer; font-family:inherit; }
+    .btn { padding:10px 20px; border:none; border-radius:30px; font-weight:600;
+      font-size:.8rem; cursor:pointer; font-family:inherit; }
     .btn-primary { background:#0f2e24; color:#fff; }
+    .btn-primary:hover { background:#1a4638; }
     .btn-secondary { background:#f0f7f3; color:#0f2e24; border:1px solid #d0e2d8; }
-    .row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px;
-      border-top:1px solid #e3e8e1; padding:12px 0; font-size:.82rem; align-items:center; }
-    .row.head { border-top:none; color:#75988a; font-size:.72rem;
+
+    .row { display:grid; grid-template-columns:1.5fr 1fr 1fr 1.2fr; gap:12px;
+      border-top:1px solid #e9f0ec; padding:14px 0; font-size:.82rem; align-items:center; }
+    .row.head { border-top:none; color:#75988a; font-size:.7rem;
       text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
     .row small { display:block; color:#75988a; font-size:.72rem; margin-top:2px; }
-    .row button { background:none; color:#ee8753; font-size:.78rem;
-      margin-right:6px; cursor:pointer; border:none; font-weight:600; }
-    .pill { display:inline-block; padding:3px 9px; border-radius:20px;
-      font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .row button { background:none; color:#ee8753; font-size:.75rem;
+      margin-right:6px; cursor:pointer; border:none; font-weight:600; padding:4px 8px; }
+    .row button:hover { background:#fff4e6; border-radius:6px; }
+    .pill { display:inline-block; padding:3px 10px; border-radius:20px;
+      font-size:.66rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
     .pill.in { background:#e5f7ec; color:#1a7f4b; }
     .pill.out { background:#fde8e8; color:#c53030; }
     .pill.adjustment { background:#fff4e6; color:#c56135; }
     .pill.sale { background:#e0ecfb; color:#1e5fa8; }
-    .metric-row { display:flex; gap:14px; flex-wrap:wrap; margin:18px 0; }
-    .metric { background:#f9fdfb; border:1px solid #e2ece6; padding:16px 22px;
-      border-radius:10px; min-width:150px; }
-    .metric span { display:block; font-size:.7rem; color:#75988a;
-      text-transform:uppercase; letter-spacing:.04em; }
-    .metric strong { display:block; font-size:1.4rem; margin-top:6px; font-weight:700; }
+
     .toast { position:fixed; bottom:24px; right:24px; background:#0f2e24; color:#fff;
       padding:12px 20px; border-radius:30px; font-size:.82rem; font-weight:500;
       transform:translateY(100px); transition:.25s; z-index:200; }
     .toast.show { transform:translateY(0); }
-    .hidden { display:none; }
-    @media (max-width: 700px) { .form-grid { grid-template-columns:1fr; } .row { grid-template-columns:1fr 1fr; } }
+    .hidden { display:none !important; }
+
+    @media (max-width:900px) {
+      .app-shell { flex-direction:column; }
+      .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; }
+      .metric-row { grid-template-columns:repeat(2, 1fr); }
+      .form-grid { grid-template-columns:1fr; }
+      .row { grid-template-columns:1fr 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <p style="margin-bottom:20px">
-      <a href="/">← New sale</a> ·
-      <a href="/products.html">Products</a> ·
-      <a href="/sales.html">Sales history</a> ·
-      <a href="/admin.html">Admin</a>
-    </p>
-    <h1 style="font-size:1.6rem;font-weight:700;margin-bottom:20px">Inventory & Stock Management</h1>
-
-    <div class="metric-row" id="metrics"></div>
-
-    <div class="tabs">
-      <button class="tab active" data-tab="movements">📋 Movement History</button>
-      <button class="tab" data-tab="adjust">⚖️ Adjust Stock</button>
-      <button class="tab" data-tab="low">⚠️ Low Stock</button>
-      <button class="tab" data-tab="products">📦 All Products</button>
-    </div>
-
-    <!-- MOVEMENT HISTORY -->
-    <section id="tab-movements" class="page-card">
-      <h2>Stock Movement History</h2>
-      <div class="form-grid" style="margin-bottom:16px">
-        <label>Product Filter
-          <select id="mov-product"><option value="">All products</option></select>
-        </label>
-        <label>Limit
-          <select id="mov-limit">
-            <option value="50">Last 50</option>
-            <option value="100" selected>Last 100</option>
-            <option value="500">Last 500</option>
-          </select>
-        </label>
-        <div style="display:flex;align-items:end">
-          <button class="btn btn-primary" id="mov-refresh">Refresh</button>
-        </div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
+      <nav>
+        <a href="/"><span>⌁</span> New sale</a>
+        <a href="./products.html"><span>□</span> Products</a>
+        <a href="./sales.html"><span>↗</span> Sales history</a>
+        <a class="active" href="./inventory.html"><span>⚙</span> Admin</a>
+      </nav>
+      <div class="store-status">
+        <span class="status-dot"></span>
+        <div><strong>Main counter</strong><small>Open · Till 01</small></div>
       </div>
-      <div id="mov-list"></div>
-    </section>
+    </aside>
 
-    <!-- ADJUST STOCK -->
-    <section id="tab-adjust" class="page-card hidden">
-      <h2>Adjust Stock</h2>
-      <form class="form-grid" id="adjust-form">
-        <label>Product
-          <select name="productId" id="adj-product" required></select>
-        </label>
-        <label>Movement Type
-          <select name="movementType" id="adj-type" required>
-            <option value="in">Stock In (Receive)</option>
-            <option value="out">Stock Out (Remove)</option>
-            <option value="adjustment">Adjustment (Set Count)</option>
-          </select>
-        </label>
-        <label>Quantity
-          <input name="quantity" type="number" min="1" value="1" required>
-        </label>
-        <label class="full">Reason (optional)
-          <input name="reason" placeholder="e.g. Supplier delivery, damage, count fix">
-        </label>
-        <div style="grid-column:1/-1">
-          <button class="btn btn-primary" type="submit">Apply Adjustment</button>
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ADMINISTRATION</p>
+          <h1>Inventory & Stock</h1>
         </div>
-      </form>
-    </section>
+        <div class="actions">
+          <a href="./admin.html" class="secondary">Full Admin</a>
+          <a href="/" class="primary">← New sale</a>
+        </div>
+      </header>
 
-    <!-- LOW STOCK -->
-    <section id="tab-low" class="page-card hidden">
-      <h2>Low Stock Alerts</h2>
-      <p style="color:#75988a;font-size:.82rem;margin-bottom:16px">
-        Products at or below their reorder level. Restock before they run out.
-      </p>
-      <div id="low-list"></div>
-    </section>
+      <div class="metric-row" id="metrics"></div>
 
-    <!-- ALL PRODUCTS -->
-    <section id="tab-products" class="page-card hidden">
-      <h2>All Products</h2>
-      <div id="products-list"></div>
-    </section>
+      <div class="tabs">
+        <button class="tab active" data-tab="movements">📋 Movement History</button>
+        <button class="tab" data-tab="adjust">⚖️ Adjust Stock</button>
+        <button class="tab" data-tab="low">⚠️ Low Stock</button>
+        <button class="tab" data-tab="products">📦 All Products</button>
+      </div>
+
+      <!-- MOVEMENT HISTORY -->
+      <section id="tab-movements" class="page-card">
+        <h2>Stock Movement History</h2>
+        <div class="form-grid" style="margin-bottom:16px">
+          <label>Product Filter
+            <select id="mov-product"><option value="">All products</option></select>
+          </label>
+          <label>Limit
+            <select id="mov-limit">
+              <option value="50">Last 50</option>
+              <option value="100" selected>Last 100</option>
+              <option value="500">Last 500</option>
+            </select>
+          </label>
+          <div style="display:flex;align-items:end">
+            <button class="btn btn-primary" id="mov-refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="mov-list"></div>
+      </section>
+
+      <!-- ADJUST STOCK -->
+      <section id="tab-adjust" class="page-card hidden">
+        <h2>Adjust Stock</h2>
+        <form class="form-grid" id="adjust-form">
+          <label>Product
+            <select name="productId" id="adj-product" required></select>
+          </label>
+          <label>Movement Type
+            <select name="movementType" id="adj-type" required>
+              <option value="in">Stock In (Receive)</option>
+              <option value="out">Stock Out (Remove)</option>
+              <option value="adjustment">Adjustment (Set Count)</option>
+            </select>
+          </label>
+          <label>Quantity
+            <input name="quantity" type="number" min="1" value="1" required>
+          </label>
+          <label class="full">Reason (optional)
+            <input name="reason" placeholder="e.g. Supplier delivery, damage, count fix">
+          </label>
+          <div style="grid-column:1/-1">
+            <button class="btn btn-primary" type="submit">Apply Adjustment</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- LOW STOCK -->
+      <section id="tab-low" class="page-card hidden">
+        <h2>Low Stock Alerts</h2>
+        <p class="hint">Products at or below their reorder level. Restock before they run out.</p>
+        <div id="low-list"></div>
+      </section>
+
+      <!-- ALL PRODUCTS -->
+      <section id="tab-products" class="page-card hidden">
+        <h2>All Products</h2>
+        <div id="products-list"></div>
+      </section>
+    </main>
   </div>
 
   <div class="toast" id="toast"></div>

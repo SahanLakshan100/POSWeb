@@ -1,41 +1,178 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Products | Counterpoint</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <style>
-    body { padding: 35px; }
-    .shell { max-width: 1100px; margin: auto; }
-    .page-card { background:#fff; border:1px solid #e3e8e1; padding:26px; border-radius:12px; }
-    .row { display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; border-top:1px solid #e3e8e1; padding:13px 0; font-size:12px; }
-    .row small { display:block; color:#76817a; }
-    .login { background:#fff; padding:25px; max-width:380px; margin:15vh auto; border:1px solid #e3e8e1; border-radius:12px; }
-    .form-grid { display:grid; gap:10px; }
-    .form-grid label { display:grid; gap:5px; font-size:12px; }
-    .form-grid input { padding:10px; border:1px solid #e3e8e1; border-radius:6px; }
-    .tool-btn { padding:10px 18px; border:0; border-radius:6px; }
-    .primary { background:#245c45; color:#fff; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; width:100%; }
+    body { font-family:'Inter', system-ui, sans-serif; background:#f6f9fc; color:#0b1b2b; padding:12px; }
+    .app-shell { width:100%; min-height:calc(100vh - 24px); background:#fff; border-radius:24px;
+      box-shadow:0 25px 50px -10px rgba(0,20,30,.15); display:flex; overflow:hidden; padding:8px; gap:8px; }
+    .sidebar { width:200px; background:#e5f2ec; border-radius:20px; padding:22px 12px;
+      display:flex; flex-direction:column; flex-shrink:0; }
+    .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:1.1rem;
+      padding:0 8px 22px 8px; color:#0f2e24; }
+    .brand-mark { background:#0f2e24; color:#fff; width:28px; height:28px; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .sidebar nav { display:flex; flex-direction:column; gap:3px; flex:1; }
+    .sidebar nav a { display:flex; align-items:center; gap:9px; padding:9px 12px;
+      border-radius:12px; font-size:.85rem; font-weight:500; color:#2b4d40; text-decoration:none; }
+    .sidebar nav a span { font-size:1.05rem; width:20px; text-align:center; color:#3d6b58; }
+    .sidebar nav a.active { background:#fff; color:#0f2e24; }
+    .store-status { background:#fff; border-radius:14px; padding:10px;
+      display:flex; align-items:center; gap:8px; margin-top:16px; }
+    .status-dot { width:8px; height:8px; background:#22c55e; border-radius:50%; flex-shrink:0; }
+    .store-status strong { font-size:.75rem; display:block; }
+    .store-status small { font-size:.65rem; color:#4b6b5e; }
+    .main-content { flex:1; padding:14px 18px 18px; display:flex; flex-direction:column;
+      gap:14px; min-width:0; overflow-y:auto; }
+    .main-content::-webkit-scrollbar { width:6px; }
+    .main-content::-webkit-scrollbar-thumb { background:#cbdcd3; border-radius:10px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; }
+    .eyebrow { font-size:.6rem; font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase; color:#75988a; margin-bottom:2px; }
+    .topbar h1 { font-size:1.4rem; font-weight:600; }
+    .topbar .actions { display:flex; gap:8px; }
+    .topbar .actions a { padding:9px 16px; border-radius:30px; font-size:.78rem;
+      font-weight:600; text-decoration:none; }
+    .topbar .actions a.primary { background:#0f2e24; color:#fff; }
+    .topbar .actions a.secondary { background:#f0f7f3; color:#0f2e24; }
+
+    .login { position:fixed; inset:0; background:#f6f9fc; display:grid; place-items:center; z-index:100; padding:16px; }
+    .login-box { background:#fff; border-radius:20px; padding:28px; width:min(380px,100%);
+      box-shadow:0 25px 50px rgba(0,0,0,.15); }
+    .login-box h2 { font-size:1.2rem; margin-bottom:18px; font-weight:600; }
+    .login-box label { display:grid; gap:6px; font-size:.75rem; color:#75988a;
+      font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:12px; }
+    .login-box input { border:1px solid #d0e2d8; padding:11px 14px; border-radius:10px;
+      font-size:.85rem; outline:none; font-family:inherit; }
+    .login-box input:focus { border-color:#0f2e24; }
+    .login-box button { width:100%; padding:12px; border-radius:30px; border:none;
+      background:#0f2e24; color:#fff; font-weight:600; font-size:.85rem; cursor:pointer;
+      font-family:inherit; margin-top:6px; }
+
+    .metric-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+    .metric { background:#f2f9f6; border-radius:16px; padding:18px 20px;
+      border:1px solid #e2ece6; }
+    .metric span { display:block; font-size:.68rem; color:#75988a;
+      text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .metric strong { display:block; font-size:1.5rem; margin-top:6px; font-weight:700; }
+    .metric.warn strong { color:#c56135; }
+    .metric.danger strong { color:#c53030; }
+
+    .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      background:#fff; padding:14px 18px; border-radius:16px; border:1px solid #e9f0ec; }
+    .search { display:flex; align-items:center; background:#f9fdfb;
+      border:1px solid #e2ece6; border-radius:30px; padding:8px 16px; gap:8px; flex:1; max-width:340px; }
+    .search span { color:#75988a; }
+    .search input { border:none; background:transparent; font-size:.85rem;
+      padding:4px 0; outline:none; width:100%; font-family:inherit; }
+    .filter-chips { display:flex; gap:6px; flex-wrap:wrap; }
+    .chip { background:#f0f7f3; border:1px solid #e2ece6; padding:7px 14px; border-radius:30px;
+      font-size:.75rem; font-weight:600; color:#0f2e24; cursor:pointer; font-family:inherit; }
+    .chip.active { background:#0f2e24; color:#fff; border-color:#0f2e24; }
+
+    .table-card { background:#fff; border-radius:20px; padding:22px; border:1px solid #e9f0ec; }
+    .table-card h2 { font-size:1.1rem; font-weight:600; margin-bottom:16px; display:flex;
+      justify-content:space-between; align-items:center; }
+    .table-card h2 small { font-size:.75rem; color:#75988a; font-weight:500; }
+
+    .row { display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr 1fr; gap:12px;
+      border-top:1px solid #e9f0ec; padding:14px 0; font-size:.82rem; align-items:center; }
+    .row.head { border-top:none; color:#75988a; font-size:.7rem;
+      text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .row small { display:block; color:#75988a; font-size:.72rem; margin-top:2px; }
+    .row .name { font-weight:600; }
+    .row .price { font-weight:700; }
+    .row .compare { font-size:.72rem; color:#9ab0a6; text-decoration:line-through; margin-left:4px; }
+
+    .pill { display:inline-block; padding:3px 10px; border-radius:20px;
+      font-size:.66rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .pill.ok { background:#e5f7ec; color:#1a7f4b; }
+    .pill.low { background:#fff4e6; color:#c56135; }
+    .pill.out { background:#fde8e8; color:#c53030; }
+    .pill.cat { background:#e0ecfb; color:#1e5fa8; }
+
+    .empty-state { text-align:center; padding:40px 0; color:#75988a; font-size:.85rem; }
+
+    .toast { position:fixed; bottom:24px; right:24px; background:#0f2e24; color:#fff;
+      padding:12px 20px; border-radius:30px; font-size:.82rem; font-weight:500;
+      transform:translateY(100px); transition:.25s; z-index:200; }
+    .toast.show { transform:translateY(0); }
     [hidden] { display:none !important; }
+
+    @media (max-width:900px) {
+      .app-shell { flex-direction:column; }
+      .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; }
+      .metric-row { grid-template-columns:repeat(2, 1fr); }
+      .row { grid-template-columns:1fr 1fr; }
+    }
   </style>
 </head>
 <body data-page="products">
+
+  <body data-page="products">
   <div id="login" class="login">
-    <h2>Admin login</h2>
-    <form id="login-form">
-      <div class="form-grid">
+    <div class="login-box">
+      <h2>Admin login</h2>
+      <form id="login-form">
         <label>Username<input name="username" value="admin" required /></label>
         <label>Password<input name="password" type="password" required /></label>
+        <button type="submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
+      <nav>
+        <a href="/"><span>⌁</span> New sale</a>
+        <a class="active" href="./products.html"><span>□</span> Products</a>
+        <a href="./sales.html"><span>↗</span> Sales history</a>
+        <a href="./inventory.html"><span>⚙</span> Admin</a>
+      </nav>
+      <div class="store-status">
+        <span class="status-dot"></span>
+        <div><strong>Main counter</strong><small>Open · Till 01</small></div>
       </div>
-      <br /><button class="tool-btn primary">Sign in</button>
-    </form>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CATALOG</p>
+          <h1>Products</h1>
+        </div>
+        <div class="actions">
+          <a href="./inventory.html" class="secondary">Stock</a>
+          <a href="./admin.html" class="secondary">Full Admin</a>
+          <a href="/" class="primary">← New sale</a>
+        </div>
+      </header>
+
+      <div class="metric-row" id="metrics"></div>
+
+      <div class="filters">
+        <label class="search"><span>⌕</span>
+          <input id="search" placeholder="Search by name or SKU" autocomplete="off" />
+        </label>
+        <div class="filter-chips" id="category-row"></div>
+      </div>
+
+      <div class="table-card">
+        <h2>Product Catalog <small id="result-count"></small></h2>
+        <div id="content"></div>
+      </div>
+    </main>
   </div>
-  <div class="shell">
-    <p><a href="/">← New sale</a> · <a href="/inventory.html">Admin inventory</a> · <a href="/sales.html">Sales history</a></p>
-    <h1>Products</h1>
-    <div id="content"></div>
-  </div>
+
   <div id="toast" class="toast"></div>
   <script src="/page.js"></script>
 </body>
