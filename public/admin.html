@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Counterpoint Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .admin-nav{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+    .admin-nav a{background:#fff;border:1px solid #dfe7df;color:#174b39;padding:10px 14px;text-decoration:none;font-size:12px;border-radius:6px}
+    .admin-nav a.active{background:#174b39;color:#fff}
+    .admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+    .admin-card{background:#fff;border:1px solid #dfe7df;padding:24px;border-radius:12px;box-shadow:0 4px 18px rgba(20,52,38,0.06)}
+    .admin-card.wide{grid-column:1/-1}
+    .admin-card h2{font:600 19px 'Space Grotesk';margin:0 0 18px}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .form-grid label{display:grid;gap:5px;color:#718078;font-size:11px}
+    .form-grid input,.form-grid select{border:1px solid #dfe7df;padding:11px;background:#fff;color:#17221d;border-radius:6px}
+    .form-grid .full{grid-column:1/-1}
+    .form-actions{display:flex;gap:8px;margin-top:14px}
+    .admin-table{margin-top:18px;overflow:auto}
+    .admin-row{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:10px;border-top:1px solid #dfe7df;padding:10px 0;font-size:11px;align-items:center}
+    .admin-row button{background:none;color:#ef8150;font-size:11px}
+    .report-box{display:flex;gap:12px;flex-wrap:wrap}
+    .metric{background:#f3f6f1;padding:14px 18px;min-width:135px;border-radius:8px}
+    .metric span{display:block;color:#718078;font-size:11px}
+    .metric strong{display:block;font:600 21px 'Space Grotesk';margin-top:6px}
+    .login-screen{position:fixed;inset:0;background:#f3f6f1;z-index:4;display:grid;place-items:center}
+    .login-box{background:#fff;border:1px solid #dfe7df;padding:30px;width:min(390px,calc(100% - 32px));box-shadow:0 4px 18px rgba(20,52,38,0.06);border-radius:12px}
+    .login-box h1{font:600 24px 'Space Grotesk';margin:0 0 6px}
+    .login-box p{color:#718078;font-size:12px;margin-bottom:22px}
+    @media(max-width:700px){.admin-grid{grid-template-columns:1fr}.admin-card.wide{grid-column:auto}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <div class="login-screen" id="login-screen">
+    <form class="login-box" id="admin-login">
+      <h1>Admin access</h1>
+      <p>Sign in to manage your standalone POS.</p>
+      <div class="form-grid">
+        <label class="full">Username<input name="username" required value="admin"></label>
+        <label class="full">Password<input name="password" required type="password" placeholder="admin123"></label>
+      </div>
+      <button class="checkout-btn" type="submit" style="width:100%;padding:14px;background:#ef8150;color:#fff;font-weight:700;border-radius:6px;margin-top:16px">Sign in →</button>
+    </form>
+  </div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
+      <nav>
+        <a href="/"><span>⌁</span> New sale</a>
+        <a href="/products.html"><span>□</span> Products</a>
+        <a href="/sales.html"><span>↗</span> Sales history</a>
+        <a class="active" href="/inventory.html"><span>⚙</span> Admin</a>
+      </nav>
+      <div class="store-status"><span class="status-dot"></span><div><strong>Admin mode</strong><small>Turso cloud</small></div></div>
+    </aside>
+    <main class="main-content">
+      <header class="topbar">
+        <div><p class="eyebrow">ADMINISTRATION</p><h1>Manage your POS.</h1></div>
+        <a class="tool-btn" href="/">Back to sale</a>
+      </header>
+      <nav class="admin-nav">
+        <a class="active" href="#inventory">Inventory</a>
+        <a href="#customers">Customers</a>
+        <a href="#suppliers">Suppliers</a>
+        <a href="#expenses">Expenses</a>
+        <a href="#reports">Reports</a>
+        <a href="#settings">Settings</a>
+      </nav>
+      <div class="admin-grid">
+        <section class="admin-card" id="inventory"><h2>Inventory</h2><form class="form-grid" id="product-form"><label>SKU / barcode<input name="sku" required></label><label>Product name<input name="name" required></label><label>Category<select name="category"><option>Coffee</option><option>Tea</option><option>Bakery</option><option>Food</option><option>Other</option></select></label><label>Price<input name="price" required type="number" min="0" step="0.01"></label><label>Stock<input name="stock" required type="number" min="0"></label><div class="form-actions"><button class="tool-btn primary" type="submit">Add product</button><button class="tool-btn" type="reset">Clear</button></div></form><div class="admin-table" id="product-list"></div></section>
+        <section class="admin-card" id="customers"><h2>Customer accounts</h2><form class="form-grid" id="customer-form"><label class="full">Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label class="full">Notes<input name="notes"></label><div class="form-actions"><button class="tool-btn primary">Add customer</button></div></form><div class="admin-table" id="customer-list"></div></section>
+        <section class="admin-card" id="suppliers"><h2>Supplier management</h2><form class="form-grid" id="supplier-form"><label class="full">Name<input name="name" required></label><label>Phone<input name="phone"></label><label>Email<input name="email" type="email"></label><label class="full">Notes<input name="notes"></label><div class="form-actions"><button class="tool-btn primary">Add supplier</button></div></form><div class="admin-table" id="supplier-list"></div></section>
+        <section class="admin-card" id="expenses"><h2>Expense tracking</h2><form class="form-grid" id="expense-form"><label class="full">Description<input name="description" required></label><label>Amount<input name="amount" required type="number" min="0" step="0.01"></label><label>Category<input name="category" required placeholder="Rent, supplies..."></label><div class="form-actions"><button class="tool-btn primary">Record expense</button></div></form><div class="admin-table" id="expense-list"></div></section>
+        <section class="admin-card wide" id="reports"><h2>Daily and monthly reports</h2><div class="report-box"><label>From<input id="report-from" type="date"></label><label>To<input id="report-to" type="date"></label><button class="tool-btn primary" id="report-btn">Run report</button></div><div class="report-box" id="report-results"></div></section>
+        <section class="admin-card" id="settings"><h2>Tax configuration</h2><form class="form-grid" id="settings-form"><label>Store name<input name="storeName" required></label><label>Tax rate %<input name="taxRate" required type="number" min="0" step="0.01"></label><label>Currency<input name="currency" required></label><div class="form-actions"><button class="tool-btn primary">Save settings</button></div></form></section>
+        <section class="admin-card"><h2>Backup and restore</h2><p class="muted">Download a JSON snapshot of your Turso database.</p><div class="form-actions"><button class="tool-btn primary" id="backup-btn">Download backup</button><label class="tool-btn">Restore backup<input id="restore-file" type="file" accept=".json" hidden></label></div></section>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="/admin.js"></script>
+</body>
+</html>

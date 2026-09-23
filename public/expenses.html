@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Expenses | Counterpoint</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { padding: 35px; }
+    .shell { max-width: 1100px; margin: auto; }
+    .page-card { background:#fff; border:1px solid #e3e8e1; padding:26px; border-radius:12px; }
+    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .form-grid label { display:grid; gap:5px; font-size:12px; }
+    .form-grid input { padding:10px; border:1px solid #e3e8e1; border-radius:6px; }
+    .row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; border-top:1px solid #e3e8e1; padding:12px 0; font-size:12px; }
+    .login { background:#fff; padding:25px; max-width:380px; margin:15vh auto; border:1px solid #e3e8e1; border-radius:12px; }
+    [hidden] { display:none !important; }
+  </style>
+</head>
+<body data-page="expenses">
+  <div class="shell">
+    <p><a href="/">← New sale</a> · <a href="/inventory.html">Inventory</a> · <a href="/customers.html">Customers</a> · <a href="/suppliers.html">Suppliers</a> · <a href="/reports.html">Reports</a> · <a href="/settings.html">Settings</a></p>
+    <h1>Expenses</h1>
+    <div id="content"></div>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="/page.js"></script>
+</body>
+</html>

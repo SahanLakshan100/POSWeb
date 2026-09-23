@@ -1,0 +1,39 @@
+:root {
+  --ink: #17221d;
+  --muted: #718078;
+  --paper: #f3f6f1;
+  --panel: #ffffff;
+  --line: #dfe7df;
+  --green: #174b39;
+  --green-soft: #e3f2e8;
+  --orange: #ef8150;
+  --shadow: 0 18px 45px rgba(20, 52, 38, 0.08);
+}
+body { background: var(--paper); color: var(--ink); }
+.sidebar { background: var(--green); width: 250px; padding: 30px 22px; }
+.brand { font-size: 21px; letter-spacing: -0.6px; }
+.sidebar nav { margin-top: 58px; }
+.sidebar nav a { border-radius: 12px; padding: 14px 15px; }
+.sidebar nav a.active { background: #30644f; box-shadow: inset 3px 0 var(--orange); }
+.main-content { max-width: 1540px; padding: 42px 5vw 70px; }
+.topbar h1 { font-size: 31px; letter-spacing: -1.2px; }
+.avatar { box-shadow: 0 8px 18px #ef815055; }
+.stats { gap: 16px; margin-bottom: 26px; }
+.stat { border: 0; border-radius: 14px; box-shadow: var(--shadow); padding: 21px 23px; }
+.workspace { gap: 22px; grid-template-columns: minmax(0, 1.7fr) minmax(340px, 0.8fr); }
+.catalog-panel, .cart-panel, .history { border: 0; border-radius: 16px; box-shadow: var(--shadow); }
+.catalog-panel { padding: 28px; }
+.cart-panel { padding: 28px; background: var(--green); color: #f4fbf5; }
+.cart-panel .eyebrow, .cart-panel .muted { color: #a8c4b4; }
+.cart-panel .total-row { color: #dcebe1; }
+.cart-panel .grand-total { color: #fff; }
+.product { border: 1px solid var(--line); border-radius: 12px; min-height: 145px; padding: 17px; background: #fff; }
+.product:hover { border-color: var(--orange); transform: translateY(-3px); box-shadow: 0 12px 24px #174b3914; }
+.product-price { color: var(--green); font-size: 16px; }
+.checkout-btn { border-radius: 10px; background: var(--orange); box-shadow: 0 10px 20px #ef815033; }
+.history { padding: 28px; margin-top: 22px; }
+.sale-row { padding: 15px 0; }
+.tool-btn { border-radius: 8px; }
+.toast { border-radius: 10px; background: var(--green); }
+@media (max-width: 900px) { .sidebar { width: 205px; } .main-content { padding: 28px 3vw; } }
+@media (max-width: 600px) { .main-content { padding: 22px 14px; } .topbar h1 { font-size: 25px; } }
