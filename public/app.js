@@ -10,6 +10,7 @@ let cart = [];
 let paymentMethod = 'Cash';
 let taxRate = 8;
 let currentStockMode = 'in';
+let currentWeightProductId = null;
 
 function showToast(msg) {
   const t = $('#toast');
@@ -39,7 +40,14 @@ async function handlePosLogin(event) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Invalid credentials');
+
     sessionStorage.setItem('pos-cashier', 'true');
+    if (data.user) {
+      sessionStorage.setItem('pos-user', JSON.stringify(data.user));
+      const nameEl = document.getElementById('current-user');
+      if (nameEl) nameEl.textContent = data.user.full_name || data.user.username;
+    }
+
     document.getElementById('pos-login').classList.add('hidden');
     loadProducts();
   } catch (e) {
@@ -81,7 +89,7 @@ async function loadProducts() {
 }
 
 /* ============================================================
-   CATEGORY FILTER ROW (from DB)
+   CATEGORY FILTER ROW
    ============================================================ */
 function renderCategories() {
   const items = [
@@ -112,6 +120,10 @@ function iconFor(categoryName) {
   return EMOJI[categoryName] || '📦';
 }
 
+function isWeightUnit(unit) {
+  return ['kg', 'g', 'L', 'ml'].includes(unit);
+}
+
 function renderProducts() {
   const q = $('#search').value.trim().toLowerCase();
   const list = allProducts.filter((p) => {
@@ -134,13 +146,19 @@ function renderProducts() {
     const badge = out ? '<div class="badge-out">Out</div>'
                   : low ? '<div class="badge-low">Low</div>' : '';
 
+    const unit = p.unit || 'piece';
+    const weight = isWeightUnit(unit);
+    const unitLabel = unit !== 'piece'
+      ? `<small style="color:#75988a;font-weight:500;margin-left:2px">/ ${unit}</small>`
+      : '';
+
     return `
-      <div class="product-card${out ? ' out-of-stock' : ''}" data-id="${p.id}">
+      <div class="product-card${out ? ' out-of-stock' : ''}" data-id="${p.id}" data-weight="${weight ? '1' : '0'}">
         ${badge}
-        <div class="product-image">${iconFor(p.category)}</div>
+        <div class="product-image">${iconFor(p.category)}${weight ? '<span style="position:absolute;bottom:6px;right:6px;font-size:.9rem">⚖️</span>' : ''}</div>
         <div class="prod-name">${p.name}</div>
         <div class="prod-meta">
-          <span class="prod-price">${money(p.price)}${compare}</span>
+          <span class="prod-price">${money(p.price)}${unitLabel}${compare}</span>
           <span class="prod-stock ${stockClass}">${out ? 'Out' : p.stock + ' left'}</span>
         </div>
       </div>`;
@@ -149,9 +167,194 @@ function renderProducts() {
   $$('.product-card').forEach((card) => {
     card.onclick = () => {
       if (card.classList.contains('out-of-stock')) return showToast('Item is out of stock');
-      addToCart(Number(card.dataset.id));
+      const id = Number(card.dataset.id);
+      const isWeight = card.dataset.weight === '1';
+      if (isWeight) openWeightModal(id);
+      else addToCart(id);
     };
   });
+}
+
+/* ============================================================
+   UNIT CONVERSION
+   Converts a quantity from the selected unit to the product's base unit.
+   Base units: kg (mass), L (volume).
+   ============================================================ */
+function convertToBaseUnit(qty, fromUnit, baseUnit) {
+  // Mass
+  if (baseUnit === 'kg') {
+    if (fromUnit === 'g') return qty / 1000;
+    if (fromUnit === 'kg') return qty;
+    if (fromUnit === 'L') return qty;       // treat 1 L ≈ 1 kg
+    if (fromUnit === 'ml') return qty / 1000;
+  }
+  if (baseUnit === 'g') {
+    if (fromUnit === 'kg') return qty * 1000;
+    if (fromUnit === 'g') return qty;
+  }
+  // Volume
+  if (baseUnit === 'L') {
+    if (fromUnit === 'ml') return qty / 1000;
+    if (fromUnit === 'L') return qty;
+    if (fromUnit === 'kg') return qty;
+    if (fromUnit === 'g') return qty / 1000;
+  }
+  if (baseUnit === 'ml') {
+    if (fromUnit === 'L') return qty * 1000;
+    if (fromUnit === 'ml') return qty;
+  }
+  // Same unit or unknown → no conversion
+  if (fromUnit === baseUnit) return qty;
+  // Fallback for piece / pack
+  return qty;
+}
+
+/* ============================================================
+   WEIGHT MODAL
+   ============================================================ */
+function openWeightModal(productId) {
+  const p = allProducts.find((x) => x.id === productId);
+  if (!p) return;
+
+  currentWeightProductId = productId;
+  const baseUnit = p.unit || 'kg';
+
+  const titleEl = document.getElementById('weight-modal-title');
+  if (titleEl) titleEl.textContent = `⚖️ ${p.name}`;
+
+  const unitSelect = document.getElementById('weight-unit-select');
+  if (unitSelect) unitSelect.value = baseUnit;
+
+  const qtyInput = document.getElementById('weight-qty');
+  if (qtyInput) {
+    qtyInput.value = 1;
+    qtyInput.step = baseUnit === 'g' || baseUnit === 'ml' ? 10 : 0.1;
+    qtyInput.min = baseUnit === 'g' || baseUnit === 'ml' ? 1 : 0.001;
+  }
+
+  const priceDisplay = document.getElementById('weight-price-display');
+  if (priceDisplay) priceDisplay.textContent = `${money(p.price)} per ${baseUnit}`;
+
+  updateWeightTotal();
+  openModal('weight-modal');
+}
+
+function updateWeightTotal() {
+  const p = allProducts.find((x) => x.id === currentWeightProductId);
+  if (!p) return;
+
+  const qty = Number(document.getElementById('weight-qty').value) || 0;
+  const selectedUnit = document.getElementById('weight-unit-select')?.value || p.unit || 'kg';
+  const baseUnit = p.unit || 'kg';
+
+  const effectiveQty = convertToBaseUnit(qty, selectedUnit, baseUnit);
+  const total = p.price * effectiveQty;
+
+  const totalEl = document.getElementById('weight-total');
+  if (totalEl) totalEl.textContent = money(total);
+
+  const priceDisplay = document.getElementById('weight-price-display');
+  if (priceDisplay) {
+    if (selectedUnit !== baseUnit && effectiveQty > 0) {
+      priceDisplay.textContent = `${money(p.price)} per ${baseUnit} · ${qty}${selectedUnit} = ${effectiveQty.toFixed(3)} ${baseUnit}`;
+    } else {
+      priceDisplay.textContent = `${money(p.price)} per ${baseUnit}`;
+    }
+  }
+}
+
+function submitWeightProduct() {
+  const p = allProducts.find((x) => x.id === currentWeightProductId);
+  if (!p) return;
+
+  const qty = Number(document.getElementById('weight-qty').value);
+  if (!qty || qty <= 0) return showToast('Enter a valid quantity');
+
+  const selectedUnit = document.getElementById('weight-unit-select')?.value || p.unit || 'kg';
+  const baseUnit = p.unit || 'kg';
+  const effectiveQty = convertToBaseUnit(qty, selectedUnit, baseUnit);
+  const lineTotal = p.price * effectiveQty;
+
+  cart.push({
+    id: p.id,
+    name: p.name,
+    unit: selectedUnit,
+    baseUnit,
+    qty,
+    effectiveQty,
+    pricePerUnit: p.price,
+    price: lineTotal,
+    isWeight: true,
+  });
+
+  closeModal('weight-modal');
+  renderCart();
+  showToast(`✅ ${qty}${selectedUnit} ${p.name} — ${money(lineTotal)}`);
+}
+
+/* ============================================================
+   CUSTOM ITEM MODAL
+   ============================================================ */
+function openCustomModal() {
+  const nameEl = document.getElementById('custom-name');
+  if (!nameEl) return;
+  nameEl.value = '';
+  document.getElementById('custom-qty').value = 1;
+  document.getElementById('custom-unit').value = 'piece';
+  document.getElementById('custom-price').value = '';
+  updateCustomTotal();
+  openModal('custom-modal');
+}
+
+function updateCustomTotal() {
+  const qtyEl = document.getElementById('custom-qty');
+  const priceEl = document.getElementById('custom-price');
+  const unitEl = document.getElementById('custom-unit');
+  if (!qtyEl || !priceEl || !unitEl) return;
+
+  const qty = Number(qtyEl.value) || 0;
+  const price = Number(priceEl.value) || 0;
+  const unit = unitEl.value;
+
+  let multiplier = qty;
+  if (unit === 'g' || unit === 'ml') multiplier = qty / 1000;
+
+  const total = price * multiplier;
+  const totalEl = document.getElementById('custom-total');
+  if (totalEl) totalEl.textContent = money(total);
+}
+
+function submitCustomItem() {
+  const name = document.getElementById('custom-name').value.trim();
+  const qty = Number(document.getElementById('custom-qty').value);
+  const unit = document.getElementById('custom-unit').value;
+  const pricePerUnit = Number(document.getElementById('custom-price').value);
+
+  if (!name) return showToast('Enter item name');
+  if (!qty || qty <= 0) return showToast('Enter a valid quantity');
+  if (!pricePerUnit || pricePerUnit < 0) return showToast('Enter a price');
+
+  let effectiveQty = qty;
+  if (unit === 'g' || unit === 'ml') effectiveQty = qty / 1000;
+
+  const lineTotal = pricePerUnit * effectiveQty;
+
+  cart.push({
+    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    unit,
+    baseUnit: unit,
+    qty,
+    effectiveQty,
+    pricePerUnit,
+    price: lineTotal,
+    isWeight: true,
+    isCustom: true,
+  });
+
+  closeModal('custom-modal');
+  renderCart();
+  showToast(`✅ ${name} ${qty}${unit} — ${money(lineTotal)}`);
 }
 
 /* ============================================================
@@ -160,22 +363,22 @@ function renderProducts() {
 function addToCart(id) {
   const p = allProducts.find((x) => x.id === id);
   if (!p) return;
-  const existing = cart.find((i) => i.id === id);
+  const existing = cart.find((i) => i.id === id && !i.isWeight);
   if (existing) existing.qty++;
   else cart.push({ id: p.id, name: p.name, price: Number(p.price), qty: 1 });
   renderCart();
 }
 
 function changeQty(id, delta) {
-  const item = cart.find((i) => i.id === id);
+  const item = cart.find((i) => String(i.id) === String(id));
   if (!item) return;
   item.qty += delta;
-  if (item.qty <= 0) cart = cart.filter((i) => i.id !== id);
+  if (item.qty <= 0) cart = cart.filter((i) => String(i.id) !== String(id));
   renderCart();
 }
 
 function voidLineItem(id) {
-  cart = cart.filter((i) => i.id !== id);
+  cart = cart.filter((i) => String(i.id) !== String(id));
   renderCart();
   showToast('Item removed');
 }
@@ -185,24 +388,42 @@ function renderCart() {
     $('#cart-items').innerHTML = `
       <div class="empty-cart"><span>+</span><p>Your order is empty</p><small>Select an item to get started</small></div>`;
   } else {
-    $('#cart-items').innerHTML = cart.map((i) => `
-      <div class="cart-item">
-        <div style="flex:1">
-          <div class="cart-item-name">${i.name}</div>
-          <div class="cart-item-price">${money(i.price)}</div>
-        </div>
-        <div class="cart-item-actions">
-          <button data-dec="${i.id}">−</button>
-          <span class="cart-item-qty">${i.qty}</span>
-          <button data-inc="${i.id}">+</button>
-          <button class="cart-item-void" data-void="${i.id}" title="Remove">×</button>
-        </div>
-      </div>`).join('');
-    $$('[data-dec]').forEach((b) => b.onclick = () => changeQty(+b.dataset.dec, -1));
-    $$('[data-inc]').forEach((b) => b.onclick = () => changeQty(+b.dataset.inc, +1));
-    $$('[data-void]').forEach((b) => b.onclick = () => voidLineItem(+b.dataset.void));
+    $('#cart-items').innerHTML = cart.map((i) => {
+      if (i.isWeight) {
+        const perUnit = i.unit === 'g' ? 'kg' : i.unit === 'ml' ? 'L' : i.unit;
+        return `
+          <div class="cart-item">
+            <div style="flex:1">
+              <div class="cart-item-name">${i.name} ${i.isCustom ? '📝' : '⚖️'}</div>
+              <div class="cart-item-price">${i.qty}${i.unit} × ${money(i.pricePerUnit)}/${perUnit}</div>
+            </div>
+            <div class="cart-item-actions">
+              <span class="cart-item-qty" style="font-weight:700">${money(i.price)}</span>
+              <button class="cart-item-void" data-void="${i.id}" title="Remove">×</button>
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="cart-item">
+          <div style="flex:1">
+            <div class="cart-item-name">${i.name}</div>
+            <div class="cart-item-price">${money(i.price)}</div>
+          </div>
+          <div class="cart-item-actions">
+            <button data-dec="${i.id}">−</button>
+            <span class="cart-item-qty">${i.qty}</span>
+            <button data-inc="${i.id}">+</button>
+            <button class="cart-item-void" data-void="${i.id}" title="Remove">×</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    $$('[data-dec]').forEach((b) => b.onclick = () => changeQty(b.dataset.dec, -1));
+    $$('[data-inc]').forEach((b) => b.onclick = () => changeQty(b.dataset.inc, +1));
+    $$('[data-void]').forEach((b) => b.onclick = () => voidLineItem(b.dataset.void));
   }
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const subtotal = cart.reduce((s, i) => s + (i.isWeight ? i.price : i.price * i.qty), 0);
   const tax = subtotal * (taxRate / 100);
   $('#subtotal').textContent = money(subtotal);
   $('#tax').textContent = money(tax);
@@ -215,13 +436,26 @@ function renderCart() {
 async function checkout() {
   if (!cart.length) return showToast('Cart is empty');
   try {
+    const items = cart.map((i) => {
+      if (i.isCustom) {
+        return {
+          customName: i.name,
+          unit: i.unit,
+          qty: i.qty,
+          pricePerUnit: i.pricePerUnit,
+          lineTotal: i.price,
+        };
+      }
+      if (i.isWeight) {
+        return { productId: i.id, quantity: i.effectiveQty };
+      }
+      return { productId: i.id, quantity: i.qty };
+    });
+
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        paymentMethod,
-        items: cart.map((i) => ({ productId: i.id, quantity: i.qty })),
-      }),
+      body: JSON.stringify({ paymentMethod, items }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Checkout failed');
@@ -239,7 +473,7 @@ async function holdBill() {
   if (!cart.length) return showToast('Cart is empty');
   const label = prompt('Label for this bill:', `Bill ${new Date().toLocaleTimeString()}`);
   if (label === null) return;
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const subtotal = cart.reduce((s, i) => s + (i.isWeight ? i.price : i.price * i.qty), 0);
   const total = subtotal * (1 + taxRate / 100);
   try {
     const res = await fetch('/api/held-bills', {
@@ -309,7 +543,7 @@ function openStockModal(mode) {
   const titles = { in: 'Stock In (Receive)', out: 'Stock Out (Remove)', adjustment: 'Stock Adjustment (Set Count)' };
   $('#stock-modal-title').textContent = titles[mode] || 'Stock Adjustment';
   $('#stock-product').innerHTML = allProducts.map((p) =>
-    `<option value="${p.id}">${p.name} (${p.sku}) — ${p.stock} in stock</option>`).join('');
+    `<option value="${p.id}">${p.name} (${p.sku}) — ${p.stock}${p.unit && p.unit !== 'piece' ? ' ' + p.unit : ''} in stock</option>`).join('');
   $('#stock-qty').value = 1;
   $('#stock-reason').value = '';
   openModal('stock-modal');
@@ -352,7 +586,7 @@ async function showLowStock() {
       <div class="held-row">
         <div>
           <strong>${p.name}</strong>
-          <small>${p.sku} · Stock: ${p.stock} · Reorder at: ${p.reorder_level}</small>
+          <small>${p.sku} · Stock: ${p.stock}${p.unit && p.unit !== 'piece' ? ' ' + p.unit : ''} · Reorder at: ${p.reorder_level}</small>
         </div>
         <div><button class="resume" data-restock="${p.id}">+ Stock</button></div>
       </div>`).join('');
@@ -380,6 +614,38 @@ $('#void-btn').onclick = () => {
 $('#login-btn').onclick = () => { window.location.href = './admin.html'; };
 $('#stock-submit').onclick = submitStockAdjust;
 
+/* ---- Logout button ---- */
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) {
+  logoutBtn.onclick = () => {
+    if (!confirm('Log out of the till?')) return;
+    sessionStorage.removeItem('pos-cashier');
+    sessionStorage.removeItem('pos-user');
+    location.reload();
+  };
+}
+
+/* ---- Weight modal listeners ---- */
+const weightUnitSelect = document.getElementById('weight-unit-select');
+if (weightUnitSelect) weightUnitSelect.addEventListener('change', updateWeightTotal);
+
+const weightQtyInput = document.getElementById('weight-qty');
+if (weightQtyInput) weightQtyInput.addEventListener('input', updateWeightTotal);
+
+const weightSubmit = document.getElementById('weight-submit');
+if (weightSubmit) weightSubmit.onclick = submitWeightProduct;
+
+/* ---- Custom item listeners ---- */
+const customQty = document.getElementById('custom-qty');
+const customPrice = document.getElementById('custom-price');
+const customUnit = document.getElementById('custom-unit');
+if (customQty) customQty.addEventListener('input', updateCustomTotal);
+if (customPrice) customPrice.addEventListener('input', updateCustomTotal);
+if (customUnit) customUnit.addEventListener('change', updateCustomTotal);
+
+const customSubmit = document.getElementById('custom-submit');
+if (customSubmit) customSubmit.onclick = submitCustomItem;
+
 $$('.payment').forEach((b) => {
   b.onclick = () => {
     $$('.payment').forEach((x) => x.classList.remove('active'));
@@ -394,6 +660,7 @@ $$('.quick-btn').forEach((btn) => {
     if (action === 'stock-in') openStockModal('in');
     else if (action === 'stock-out') openStockModal('out');
     else if (action === 'adjust') openStockModal('adjustment');
+    else if (action === 'custom') openCustomModal();
     else if (action === 'hold') holdBill();
     else if (action === 'resume') showHeldBills();
     else if (action === 'void') $('#void-btn').click();
@@ -413,13 +680,24 @@ $$('.modal-bg').forEach((bg) => {
 });
 
 /* ============================================================
-   BOOT — gate the POS behind login
+   BOOT
    ============================================================ */
 const posLoginForm = document.getElementById('pos-login-form');
 const posLoginScreen = document.getElementById('pos-login');
 
 if (posLoginForm) {
   posLoginForm.addEventListener('submit', handlePosLogin);
+}
+
+const userEl = document.getElementById('current-user');
+if (userEl) {
+  const raw = sessionStorage.getItem('pos-user');
+  if (raw) {
+    try {
+      const u = JSON.parse(raw);
+      userEl.textContent = u.full_name || u.username;
+    } catch { /* ignore */ }
+  }
 }
 
 if (posLoginScreen && sessionStorage.getItem('pos-cashier') === 'true') {

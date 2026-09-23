@@ -119,36 +119,61 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 /* ============================================================
-   PRODUCTS
+   PRODUCTS (with unit support)
    ============================================================ */
 app.get('/api/products', async (_req, res) => {
   try { ok(res, await query('SELECT * FROM products ORDER BY name')); }
   catch (e) { fail(res, e.message, 500); }
 });
+
 app.get('/api/products/low-stock', async (_req, res) => {
   try { ok(res, await query('SELECT * FROM products WHERE stock <= reorder_level ORDER BY stock ASC')); }
   catch (e) { fail(res, e.message, 500); }
 });
+
 app.post('/api/products', async (req, res) => {
   try {
-    const { sku, name, category, price, compare_price, cost_price, reorder_level, stock } = req.body;
+    const { sku, name, category, unit, price, compare_price, cost_price, reorder_level, stock } = req.body;
     const r = await run(
-      'INSERT INTO products (sku, name, category, price, compare_price, cost_price, reorder_level, stock) VALUES (?,?,?,?,?,?,?,?)',
-      [sku, name, category || 'Other', Number(price), Number(compare_price) || 0, Number(cost_price) || 0, Number(reorder_level) || 5, Number(stock)]
+      'INSERT INTO products (sku, name, category, unit, price, compare_price, cost_price, reorder_level, stock) VALUES (?,?,?,?,?,?,?,?,?)',
+      [
+        sku,
+        name,
+        category || 'Other',
+        unit || 'piece',
+        Number(price),
+        Number(compare_price) || 0,
+        Number(cost_price) || 0,
+        Number(reorder_level) || 5,
+        Number(stock),
+      ]
     );
     ok(res, { id: r.lastInsertRowid, message: 'Product added' });
   } catch (e) { fail(res, e.message); }
 });
+
 app.put('/api/products/:id', async (req, res) => {
   try {
-    const { sku, name, category, price, compare_price, cost_price, reorder_level, stock } = req.body;
+    const { sku, name, category, unit, price, compare_price, cost_price, reorder_level, stock } = req.body;
     await run(
-      'UPDATE products SET sku=?, name=?, category=?, price=?, compare_price=?, cost_price=?, reorder_level=?, stock=? WHERE id=?',
-      [sku, name, category, Number(price), Number(compare_price) || 0, Number(cost_price) || 0, Number(reorder_level) || 5, Number(stock), req.params.id]
+      'UPDATE products SET sku=?, name=?, category=?, unit=?, price=?, compare_price=?, cost_price=?, reorder_level=?, stock=? WHERE id=?',
+      [
+        sku,
+        name,
+        category,
+        unit || 'piece',
+        Number(price),
+        Number(compare_price) || 0,
+        Number(cost_price) || 0,
+        Number(reorder_level) || 5,
+        Number(stock),
+        req.params.id,
+      ]
     );
     ok(res, { message: 'Product updated' });
   } catch (e) { fail(res, e.message); }
 });
+
 app.delete('/api/products/:id', async (req, res) => {
   try { await run('DELETE FROM products WHERE id=?', [req.params.id]); ok(res, { message: 'Product deleted' }); }
   catch (e) { fail(res, e.message); }
@@ -212,6 +237,7 @@ app.get('/api/stock/movements', async (req, res) => {
     ok(res, await query(sql, params));
   } catch (e) { fail(res, e.message, 500); }
 });
+
 app.post('/api/stock/adjust', async (req, res) => {
   try {
     const { productId, movementType, quantity, reason } = req.body;
@@ -270,7 +296,7 @@ app.delete('/api/held-bills/:id', async (req, res) => {
 });
 
 /* ============================================================
-   CHECKOUT
+   CHECKOUT — weight products + custom items
    ============================================================ */
 app.post('/api/checkout', async (req, res) => {
   try {
@@ -282,32 +308,83 @@ app.post('/api/checkout', async (req, res) => {
 
     let subtotal = 0;
     const lineItems = [];
+
     for (const item of items) {
+      // Custom item (not in catalog) — no stock deduction
+      if (item.customName) {
+        const unit = item.unit || 'piece';
+        const qty = Number(item.qty);
+        const pricePerUnit = Number(item.pricePerUnit);
+        // For g / ml, the price is quoted per kg / L → divide by 1000
+        let effectiveQty = qty;
+        if (unit === 'g' || unit === 'ml') effectiveQty = qty / 1000;
+        const lineTotal = Number(item.lineTotal) || (pricePerUnit * effectiveQty);
+
+        subtotal += lineTotal;
+        lineItems.push({
+          custom: true,
+          customName: item.customName,
+          unit,
+          qty,
+          pricePerUnit,
+          lineTotal,
+        });
+        continue;
+      }
+
+      // Regular or weight product
       const p = await get('SELECT * FROM products WHERE id=?', [item.productId]);
       if (!p) return fail(res, `Product ${item.productId} not found`);
-      if (!allowNeg && p.stock < item.quantity) return fail(res, `Insufficient stock for ${p.name} (only ${p.stock} left)`);
-      subtotal += p.price * item.quantity;
-      lineItems.push({ ...item, unitPrice: p.price });
+
+      // item.quantity can be fractional for weight items (0.5 kg) or integer for pieces
+      const qty = Number(item.quantity);
+      if (!qty || qty <= 0) return fail(res, `Invalid quantity for ${p.name}`);
+      if (!allowNeg && p.stock < qty) {
+        return fail(res, `Insufficient stock for ${p.name} (only ${p.stock} left)`);
+      }
+
+      const lineTotal = p.price * qty;
+      subtotal += lineTotal;
+      lineItems.push({
+        custom: false,
+        productId: item.productId,
+        quantity: qty,
+        unitPrice: p.price,
+        lineTotal,
+      });
     }
+
     const taxSetting = await get("SELECT value FROM settings WHERE key='taxRate'");
     const taxRate = parseFloat(taxSetting?.value || '8');
     const total = subtotal * (1 + taxRate / 100);
 
-    const saleResult = await run('INSERT INTO sales (total, payment_method, status) VALUES (?,?,?)', [total, paymentMethod, 'completed']);
+    const saleResult = await run(
+      'INSERT INTO sales (total, payment_method, status) VALUES (?,?,?)',
+      [total, paymentMethod, 'completed']
+    );
     const saleId = saleResult.lastInsertRowid;
 
     for (const item of lineItems) {
-      const lineTotal = item.unitPrice * item.quantity;
-      await run(
-        'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?)',
-        [saleId, item.productId, item.quantity, item.unitPrice, lineTotal]
-      );
-      await run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.productId]);
-      await run(
-        'INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference) VALUES (?,?,?,?,?)',
-        [item.productId, 'out', item.quantity, 'Sale', `sale#${saleId}`]
-      );
+      if (item.custom) {
+        // Custom item — insert with product_id NULL, no stock movement
+        await run(
+          `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, line_total)
+           VALUES (?, NULL, ?, ?, ?)`,
+          [saleId, item.qty, item.pricePerUnit, item.lineTotal]
+        );
+      } else {
+        await run(
+          'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, line_total) VALUES (?,?,?,?,?)',
+          [saleId, item.productId, item.quantity, item.unitPrice, item.lineTotal]
+        );
+        await run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.productId]);
+        await run(
+          'INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference) VALUES (?,?,?,?,?)',
+          [item.productId, 'out', item.quantity, 'Sale', `sale#${saleId}`]
+        );
+      }
     }
+
     ok(res, { saleId, total });
   } catch (e) { fail(res, e.message, 500); }
 });
@@ -322,6 +399,8 @@ app.post('/api/sales/:id/void', async (req, res) => {
     if (sale.status === 'voided') return fail(res, 'Sale already voided');
     const items = await query('SELECT * FROM sale_items WHERE sale_id=?', [req.params.id]);
     for (const item of items) {
+      // Skip custom items (product_id is NULL)
+      if (!item.product_id) continue;
       await run('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
       await run(
         'INSERT INTO stock_movements (product_id, movement_type, quantity, reason, reference) VALUES (?,?,?,?,?)',
@@ -470,7 +549,7 @@ app.get('/api/backup', async (_req, res) => {
     ]);
     const snapshot = {
       exportedAt: new Date().toISOString(),
-      version: 3,
+      version: 5,
       data: { products, sales, saleItems, customers, suppliers, expenses, settings, stockMovements, heldBills, users, categories },
     };
     res.setHeader('Content-Type', 'application/json');
@@ -478,6 +557,7 @@ app.get('/api/backup', async (_req, res) => {
     res.send(JSON.stringify(snapshot, null, 2));
   } catch (e) { fail(res, e.message, 500); }
 });
+
 app.post('/api/restore', async (req, res) => {
   try {
     const { snapshot } = req.body;
@@ -490,7 +570,7 @@ app.post('/api/restore', async (req, res) => {
 
     for (const c of d.categories || []) await run('INSERT INTO categories (id,name,icon,sort_order,created_at) VALUES (?,?,?,?,?)', [c.id,c.name,c.icon,c.sort_order,c.created_at]);
     for (const u of d.users || []) await run('INSERT INTO users (id,username,password_hash,full_name,role,active,created_at) VALUES (?,?,?,?,?,?,?)', [u.id,u.username,u.password_hash,u.full_name,u.role,u.active,u.created_at]);
-    for (const p of d.products || []) await run('INSERT INTO products (id,sku,name,category,price,compare_price,cost_price,reorder_level,stock,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)', [p.id,p.sku,p.name,p.category,p.price,p.compare_price||0,p.cost_price||0,p.reorder_level||5,p.stock,p.created_at]);
+    for (const p of d.products || []) await run('INSERT INTO products (id,sku,name,category,unit,price,compare_price,cost_price,reorder_level,stock,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [p.id,p.sku,p.name,p.category,p.unit||'piece',p.price,p.compare_price||0,p.cost_price||0,p.reorder_level||5,p.stock,p.created_at]);
     for (const s of d.sales || []) await run('INSERT INTO sales (id,total,payment_method,status,voided_at,sold_at) VALUES (?,?,?,?,?,?)', [s.id,s.total,s.payment_method,s.status||'completed',s.voided_at||null,s.sold_at]);
     for (const si of d.saleItems || []) await run('INSERT INTO sale_items (id,sale_id,product_id,quantity,unit_price,line_total) VALUES (?,?,?,?,?,?)', [si.id,si.sale_id,si.product_id,si.quantity,si.unit_price,si.line_total||si.unit_price*si.quantity]);
     for (const c of d.customers || []) await run('INSERT INTO customers (id,name,phone,email,notes,created_at) VALUES (?,?,?,?,?,?)', [c.id,c.name,c.phone,c.email,c.notes,c.created_at]);

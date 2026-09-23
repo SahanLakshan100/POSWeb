@@ -12,6 +12,7 @@ export async function initDatabase() {
       cost_price REAL DEFAULT 0,
       reorder_level INTEGER DEFAULT 5,
       stock INTEGER DEFAULT 0,
+      unit TEXT DEFAULT 'piece',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS sales (
@@ -25,8 +26,8 @@ export async function initDatabase() {
     `CREATE TABLE IF NOT EXISTS sale_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sale_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      quantity INTEGER NOT NULL,
+      product_id INTEGER,
+      quantity REAL NOT NULL,
       unit_price REAL NOT NULL,
       line_total REAL NOT NULL
     )`,
@@ -61,7 +62,7 @@ export async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id INTEGER NOT NULL,
       movement_type TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
+      quantity REAL NOT NULL,
       reason TEXT,
       reference TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -101,6 +102,7 @@ export async function initDatabase() {
     `ALTER TABLE products ADD COLUMN compare_price REAL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN reorder_level INTEGER DEFAULT 5`,
+    `ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'piece'`,
     `ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'completed'`,
     `ALTER TABLE sales ADD COLUMN voided_at DATETIME`,
     `ALTER TABLE sale_items ADD COLUMN line_total REAL DEFAULT 0`,

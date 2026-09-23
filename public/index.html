@@ -41,10 +41,10 @@
       border:1px solid #d0e2d8; color:#0f2e24; font-weight:600; font-size:1rem;
       display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
-    .quick-menu { display:grid; grid-template-columns:repeat(9, 1fr); gap:6px;
+    .quick-menu { display:grid; grid-template-columns:repeat(10, 1fr); gap:6px;
       background:#f2f9f6; padding:10px; border-radius:16px; }
     .quick-btn { background:#fff; border:1px solid #d0e2d8; border-radius:12px;
-      padding:10px 6px; font-size:.72rem; font-weight:600; color:#0f2e24;
+      padding:10px 6px; font-size:.7rem; font-weight:600; color:#0f2e24;
       cursor:pointer; text-align:center; line-height:1.2; }
     .quick-btn:hover { background:#e5f2ec; border-color:#0f2e24; }
     .quick-btn span { display:block; font-size:1.1rem; margin-bottom:3px; }
@@ -162,8 +162,7 @@
       transform:translateY(100px); transition:.25s; z-index:200; }
     .toast.show { transform:translateY(0); }
 
-
-        /* ---- Login overlay ---- */
+    /* ---- Login overlay ---- */
     .pos-login { position:fixed; inset:0; background:#f6f9fc; z-index:500;
       display:flex; align-items:center; justify-content:center; padding:16px; }
     .pos-login.hidden { display:none; }
@@ -194,7 +193,7 @@
 </head>
 <body>
 
-      <!-- Login overlay -->
+  <!-- Login overlay -->
   <div id="pos-login" class="pos-login">
     <form class="pos-login-box" id="pos-login-form" autocomplete="off">
       <div class="pos-login-brand">
@@ -228,13 +227,18 @@
     <main class="main-content">
       <header class="topbar">
         <div><p class="eyebrow">TODAY</p><h1>Good morning.</h1></div>
-        <button class="avatar" id="login-btn" title="Admin login">M</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="current-user" style="font-size:.78rem;color:#75988a;font-weight:500"></span>
+          <button class="avatar" id="login-btn" title="Admin panel">M</button>
+          <button class="avatar" id="logout-btn" title="Log out" style="background:#fde8e8;color:#c53030;font-size:1rem">⎋</button>
+        </div>
       </header>
 
       <div class="quick-menu">
         <button class="quick-btn" data-action="stock-in"><span>📦</span>Stock In</button>
         <button class="quick-btn" data-action="stock-out"><span>📤</span>Stock Out</button>
         <button class="quick-btn" data-action="adjust"><span>⚖️</span>Adjust</button>
+        <button class="quick-btn" data-action="custom"><span>📝</span>Custom Item</button>
         <button class="quick-btn" data-action="hold"><span>⏸️</span>Hold Bill</button>
         <button class="quick-btn" data-action="resume"><span>▶️</span>Resume</button>
         <button class="quick-btn" data-action="void"><span>🗑️</span>Void</button>
@@ -299,7 +303,7 @@
         <select id="stock-product"></select>
       </label>
       <label>Quantity
-        <input id="stock-qty" type="number" min="1" value="1">
+        <input id="stock-qty" type="number" min="0.001" step="0.001" value="1">
       </label>
       <label>Reason (optional)
         <input id="stock-reason" placeholder="e.g. Supplier delivery, damage, count fix">
@@ -307,6 +311,80 @@
       <div class="modal-actions">
         <button class="cancel" data-close-modal>Cancel</button>
         <button class="primary" id="stock-submit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weight Item Modal (with unit picker) -->
+  <div class="modal-bg" id="weight-modal">
+    <div class="modal">
+      <h3 id="weight-modal-title">⚖️ Product</h3>
+      <p style="color:#75988a;font-size:.78rem;margin-bottom:14px">
+        Choose the unit and enter the amount.
+      </p>
+      <label>Unit
+        <select id="weight-unit-select">
+          <option value="kg">Kilogram (kg)</option>
+          <option value="g">Gram (g)</option>
+          <option value="L">Litre (L)</option>
+          <option value="ml">Millilitre (ml)</option>
+          <option value="piece">Piece</option>
+          <option value="pack">Pack</option>
+        </select>
+      </label>
+      <label>Amount
+        <input id="weight-qty" type="number" min="0.001" step="0.001" value="1">
+      </label>
+      <div style="padding:10px 12px;background:#f9fdfb;border:1px solid #e2ece6;border-radius:10px;font-size:.82rem;color:#0f2e24;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:#75988a">Base price</span>
+          <strong id="weight-price-display">$0.00 per kg</strong>
+        </div>
+      </div>
+      <div style="background:#f2f9f6;border-radius:10px;padding:12px;margin-top:8px;font-size:.85rem;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#75988a">Subtotal</span>
+        <strong id="weight-total" style="font-size:1.1rem">$0.00</strong>
+      </div>
+      <div class="modal-actions">
+        <button class="cancel" data-close-modal>Cancel</button>
+        <button class="primary" id="weight-submit">Add to cart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Item Modal -->
+  <div class="modal-bg" id="custom-modal">
+    <div class="modal">
+      <h3>📝 Add Custom Item</h3>
+      <p style="color:#75988a;font-size:.78rem;margin-bottom:14px">
+        For items not in the catalog.
+      </p>
+      <label>Item name
+        <input id="custom-name" placeholder="e.g. Delivery fee" required>
+      </label>
+      <label>Quantity
+        <input id="custom-qty" type="number" min="0.001" step="0.001" value="1">
+      </label>
+      <label>Unit
+        <select id="custom-unit">
+          <option value="piece">Piece</option>
+          <option value="kg">Kilogram (kg)</option>
+          <option value="g">Gram (g)</option>
+          <option value="L">Litre (L)</option>
+          <option value="ml">Millilitre (ml)</option>
+          <option value="pack">Pack</option>
+        </select>
+      </label>
+      <label>Price per unit
+        <input id="custom-price" type="number" min="0" step="0.01" placeholder="e.g. 2.50">
+      </label>
+      <div style="background:#f2f9f6;border-radius:10px;padding:12px;margin-top:8px;font-size:.82rem;display:flex;justify-content:space-between">
+        <span style="color:#75988a">Subtotal</span>
+        <strong id="custom-total">$0.00</strong>
+      </div>
+      <div class="modal-actions">
+        <button class="cancel" data-close-modal>Cancel</button>
+        <button class="primary" id="custom-submit">Add to cart</button>
       </div>
     </div>
   </div>

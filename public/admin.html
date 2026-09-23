@@ -83,16 +83,26 @@
   <a href="#" data-tab="backup">Backup</a>
 </nav>
             <div class="admin-grid">
-        <section class="admin-card admin-section active" data-section="inventory" id="inventory">
+                <section class="admin-card admin-section active" data-section="inventory" id="inventory">
           <h2>Inventory</h2>
           <form class="form-grid" id="product-form">
             <label>SKU / barcode<input name="sku" required></label>
             <label>Product name<input name="name" required></label>
             <label>Category
-  <select name="category" id="product-category-select" required>
-    <option value="">Loading…</option>
-  </select>
-</label>
+              <select name="category" id="product-category-select" required>
+                <option value="">Loading…</option>
+              </select>
+            </label>
+            <label>Unit (how it's sold)
+              <select name="unit" id="product-unit">
+                <option value="piece">Piece (per unit)</option>
+                <option value="kg">Kilogram (kg)</option>
+                <option value="g">Gram (g)</option>
+                <option value="L">Litre (L)</option>
+                <option value="ml">Millilitre (ml)</option>
+                <option value="pack">Pack</option>
+              </select>
+            </label>
             <label>Price<input name="price" required type="number" min="0" step="0.01"></label>
             <label>Was price (optional)<input name="compare_price" type="number" min="0" step="0.01" value="0" placeholder="Original price"></label>
             <label>Cost price (optional)<input name="cost_price" type="number" min="0" step="0.01" value="0" placeholder="Your cost"></label>
