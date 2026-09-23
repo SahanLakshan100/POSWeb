@@ -218,11 +218,10 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
-  console.log(`\n🚀 Counterpoint POS running on ${HOST}:${PORT}`);
+  console.log(`🚀 Counterpoint POS running on ${HOST}:${PORT}`);
   console.log(`   DB: ${process.env.TURSO_DATABASE_URL ? '✅ connected' : '❌ missing .env'}`);
-  console.log(`   Login: ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}\n`);
-
-  // Run DB init in background — server stays up even if this fails
+  
+  // Run database setup in the background — don't block startup
   initDatabase()
     .then(() => console.log('✅ Database ready'))
     .catch((e) => console.error('⚠️ DB init warning (server still running):', e.message));
