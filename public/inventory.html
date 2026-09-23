@@ -6,56 +6,134 @@
   <title>Inventory | Counterpoint</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    body { padding: 35px; }
-    .shell { max-width: 1100px; margin: auto; }
-    .page-card { background:#fff; border:1px solid #e3e8e1; padding:26px; border-radius:12px; }
-    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-    .form-grid label { display:grid; gap:5px; font-size:11px; color:#76817a; }
-    .form-grid input, .form-grid select { border:1px solid #e3e8e1; padding:10px; border-radius:6px; }
-    .table { margin-top: 24px; }
-    .row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px; border-top:1px solid #e3e8e1; padding:12px 0; font-size:12px; align-items:center; }
-    .row button { background:none; color:#ee8753; margin-right:8px; }
-    .row small { display:block; color:#76817a; }
-    .filters { display:flex; gap:10px; align-items:end; }
-    .filters label { display:grid; gap:5px; font-size:11px; }
-    .metrics { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
-    .metrics div, .summary { background:#f6f7f3; padding:15px; border-radius:8px; }
-    .metrics span { display:block; color:#76817a; font-size:11px; }
-    .metrics strong { font:600 20px 'Space Grotesk'; }
-    .login { max-width:380px; margin:14vh auto; background:#fff; padding:28px; border:1px solid #e3e8e1; border-radius:12px; }
-    [hidden] { display:none !important; }
+    body { padding: 30px; }
+    .shell { max-width: 1200px; margin: auto; }
+    .page-card { background:#fff; border:1px solid #e3e8e1; padding:24px; border-radius:14px; margin-bottom:20px; }
+    .page-card h2 { font: 600 19px 'Inter', system-ui, sans-serif; margin:0 0 18px; }
+    .tabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+    .tab { background:#f0f7f3; border:1px solid #e2ece6; padding:9px 18px; border-radius:10px;
+      font-size:.82rem; font-weight:600; color:#0f2e24; cursor:pointer; }
+    .tab.active { background:#0f2e24; color:#fff; border-color:#0f2e24; }
+    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .form-grid label { display:grid; gap:5px; font-size:.72rem; color:#75988a; font-weight:500; }
+    .form-grid input, .form-grid select { border:1px solid #d0e2d8; padding:10px 12px;
+      border-radius:8px; font-size:.85rem; font-family:inherit; outline:none; background:#fff; }
+    .form-grid input:focus, .form-grid select:focus { border-color:#0f2e24; }
+    .form-grid .full { grid-column:1/-1; }
+    .btn { padding:10px 18px; border:none; border-radius:8px; font-weight:600;
+      font-size:.82rem; cursor:pointer; font-family:inherit; }
+    .btn-primary { background:#0f2e24; color:#fff; }
+    .btn-secondary { background:#f0f7f3; color:#0f2e24; border:1px solid #d0e2d8; }
+    .row { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:10px;
+      border-top:1px solid #e3e8e1; padding:12px 0; font-size:.82rem; align-items:center; }
+    .row.head { border-top:none; color:#75988a; font-size:.72rem;
+      text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+    .row small { display:block; color:#75988a; font-size:.72rem; margin-top:2px; }
+    .row button { background:none; color:#ee8753; font-size:.78rem;
+      margin-right:6px; cursor:pointer; border:none; font-weight:600; }
+    .pill { display:inline-block; padding:3px 9px; border-radius:20px;
+      font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .pill.in { background:#e5f7ec; color:#1a7f4b; }
+    .pill.out { background:#fde8e8; color:#c53030; }
+    .pill.adjustment { background:#fff4e6; color:#c56135; }
+    .pill.sale { background:#e0ecfb; color:#1e5fa8; }
+    .metric-row { display:flex; gap:14px; flex-wrap:wrap; margin:18px 0; }
+    .metric { background:#f9fdfb; border:1px solid #e2ece6; padding:16px 22px;
+      border-radius:10px; min-width:150px; }
+    .metric span { display:block; font-size:.7rem; color:#75988a;
+      text-transform:uppercase; letter-spacing:.04em; }
+    .metric strong { display:block; font-size:1.4rem; margin-top:6px; font-weight:700; }
+    .toast { position:fixed; bottom:24px; right:24px; background:#0f2e24; color:#fff;
+      padding:12px 20px; border-radius:30px; font-size:.82rem; font-weight:500;
+      transform:translateY(100px); transition:.25s; z-index:200; }
+    .toast.show { transform:translateY(0); }
+    .hidden { display:none; }
+    @media (max-width: 700px) { .form-grid { grid-template-columns:1fr; } .row { grid-template-columns:1fr 1fr; } }
   </style>
 </head>
-<body data-page="inventory">
-  <div id="login" class="login">
-    <h2>Admin login</h2>
-    <form id="login-form">
-      <div class="form-grid">
-        <label>Username<input name="username" value="admin" required /></label>
-        <label>Password<input name="password" type="password" required /></label>
+<body>
+  <div class="shell">
+    <p style="margin-bottom:20px">
+      <a href="/">← New sale</a> ·
+      <a href="/products.html">Products</a> ·
+      <a href="/sales.html">Sales history</a> ·
+      <a href="/admin.html">Admin</a>
+    </p>
+    <h1 style="font-size:1.6rem;font-weight:700;margin-bottom:20px">Inventory & Stock Management</h1>
+
+    <div class="metric-row" id="metrics"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="movements">📋 Movement History</button>
+      <button class="tab" data-tab="adjust">⚖️ Adjust Stock</button>
+      <button class="tab" data-tab="low">⚠️ Low Stock</button>
+      <button class="tab" data-tab="products">📦 All Products</button>
+    </div>
+
+    <!-- MOVEMENT HISTORY -->
+    <section id="tab-movements" class="page-card">
+      <h2>Stock Movement History</h2>
+      <div class="form-grid" style="margin-bottom:16px">
+        <label>Product Filter
+          <select id="mov-product"><option value="">All products</option></select>
+        </label>
+        <label>Limit
+          <select id="mov-limit">
+            <option value="50">Last 50</option>
+            <option value="100" selected>Last 100</option>
+            <option value="500">Last 500</option>
+          </select>
+        </label>
+        <div style="display:flex;align-items:end">
+          <button class="btn btn-primary" id="mov-refresh">Refresh</button>
+        </div>
       </div>
-      <br /><button class="tool-btn primary" style="padding:10px 18px;background:#245c45;color:#fff;border-radius:6px">Sign in</button>
-    </form>
+      <div id="mov-list"></div>
+    </section>
+
+    <!-- ADJUST STOCK -->
+    <section id="tab-adjust" class="page-card hidden">
+      <h2>Adjust Stock</h2>
+      <form class="form-grid" id="adjust-form">
+        <label>Product
+          <select name="productId" id="adj-product" required></select>
+        </label>
+        <label>Movement Type
+          <select name="movementType" id="adj-type" required>
+            <option value="in">Stock In (Receive)</option>
+            <option value="out">Stock Out (Remove)</option>
+            <option value="adjustment">Adjustment (Set Count)</option>
+          </select>
+        </label>
+        <label>Quantity
+          <input name="quantity" type="number" min="1" value="1" required>
+        </label>
+        <label class="full">Reason (optional)
+          <input name="reason" placeholder="e.g. Supplier delivery, damage, count fix">
+        </label>
+        <div style="grid-column:1/-1">
+          <button class="btn btn-primary" type="submit">Apply Adjustment</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LOW STOCK -->
+    <section id="tab-low" class="page-card hidden">
+      <h2>Low Stock Alerts</h2>
+      <p style="color:#75988a;font-size:.82rem;margin-bottom:16px">
+        Products at or below their reorder level. Restock before they run out.
+      </p>
+      <div id="low-list"></div>
+    </section>
+
+    <!-- ALL PRODUCTS -->
+    <section id="tab-products" class="page-card hidden">
+      <h2>All Products</h2>
+      <div id="products-list"></div>
+    </section>
   </div>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
-      <nav>
-        <a href="/"><span>⌁</span> New sale</a>
-        <a href="/products.html"><span>□</span> Products</a>
-        <a href="/sales.html"><span>↗</span> Sales history</a>
-        <a class="active" href="/inventory.html"><span>⚙</span> Admin</a>
-      </nav>
-    </aside>
-    <main class="main-content">
-      <header class="topbar">
-        <div><p class="eyebrow">ADMINISTRATION</p><h1>Inventory</h1></div>
-        <a href="/" class="tool-btn">Back to sale</a>
-      </header>
-      <div id="content"></div>
-    </main>
-  </div>
-  <div id="toast" class="toast"></div>
+
+  <div class="toast" id="toast"></div>
   <script src="/page.js"></script>
 </body>
 </html>
