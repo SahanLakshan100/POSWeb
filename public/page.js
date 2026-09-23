@@ -69,7 +69,6 @@ function form(url, message, reload = loadPage) {
    INVENTORY (tabbed)
    ============================================================ */
 async function inventory() {
-  // Tab switching
   const tabs = $$('.tab');
   tabs.forEach((tab) => {
     tab.onclick = () => {
@@ -93,7 +92,6 @@ async function refreshInventory() {
       api('/api/products/low-stock').catch(() => []),
     ]);
 
-    // Metrics
     const totalStock = products.reduce((s, p) => s + Number(p.stock), 0);
     const lowCount = lowStock.length;
     const totalSkus = products.length;
@@ -106,15 +104,12 @@ async function refreshInventory() {
       <div class="metric"><span>Out of Stock</span><strong style="color:#c53030">${outCount}</strong></div>
     `;
 
-    // Dropdowns
     const options = products.map((p) => `<option value="${p.id}">${p.name} (${p.sku}) — ${p.stock} in stock</option>`).join('');
     $('#adj-product').innerHTML = options;
     $('#mov-product').innerHTML = '<option value="">All products</option>' + options;
 
-    // Movement history
     renderMovements(movements);
 
-    // Low stock
     if (!lowStock.length) {
       $('#low-list').innerHTML = '<p style="color:#1a7f4b;font-size:.85rem">✅ All items are well stocked.</p>';
     } else {
@@ -135,7 +130,6 @@ async function refreshInventory() {
       });
     }
 
-    // All products
     $('#products-list').innerHTML =
       '<div class="row head"><span>Product</span><span>Price</span><span>Stock</span><span>Actions</span></div>' +
       products.map((p) => `
@@ -166,7 +160,6 @@ async function refreshInventory() {
       } catch (e) { toast(e.message); }
     });
 
-    // Adjust form
     $('#adjust-form').onsubmit = async (event) => {
       event.preventDefault();
       const data = formPayload(event.target);
@@ -185,7 +178,6 @@ async function refreshInventory() {
       } catch (e) { toast(e.message); }
     };
 
-    // Filter
     $('#mov-refresh').onclick = async () => {
       const pid = $('#mov-product').value;
       const limit = $('#mov-limit').value;
@@ -239,12 +231,14 @@ async function editProductPrompt(id) {
   const compare_price = prompt('Was price (0 for none):', p.compare_price || 0);
   const reorder_level = prompt('Reorder level:', p.reorder_level || 5);
   const stock = prompt('Stock:', p.stock);
+  const unit = prompt('Unit (piece / kg / g / L / ml / pack):', p.unit || 'piece');
   try {
     await api(`/api/products/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sku: p.sku, name, category: p.category,
+        unit: unit || 'piece',
         price: Number(price),
         compare_price: Number(compare_price),
         reorder_level: Number(reorder_level),
@@ -424,11 +418,12 @@ async function products() {
           : '<span class="pill ok">In Stock</span>';
         const compare = Number(p.compare_price) > Number(p.price)
           ? `<span class="compare">${money(p.compare_price)}</span>` : '';
+        const unit = p.unit && p.unit !== 'piece' ? ` / ${p.unit}` : '';
         return `
           <div class="row">
             <span class="name">${p.name}<small>${p.sku}</small></span>
             <span><span class="pill cat">${p.category || 'Other'}</span></span>
-            <span class="price">${money(p.price)}${compare}</span>
+            <span class="price">${money(p.price)}${unit}${compare}</span>
             <span>${p.stock} units<small>Reorder at ${p.reorder_level || 5}</small></span>
             <span>${stockPill}</span>
           </div>`;
@@ -453,53 +448,231 @@ async function products() {
 }
 
 /* ============================================================
-   SALES
+   SALES — expandable rows + print
    ============================================================ */
 async function sales() {
-  const render = (r) => {
+  let expandedId = null;
+
+  const renderMetrics = (r) => {
     const avg = r.orders ? r.total / r.orders : 0;
-    const cardCount = r.sales.filter((s) => s.payment_method === 'Card').length;
     const cashCount = r.sales.filter((s) => s.payment_method === 'Cash').length;
-    $('#metrics').innerHTML = `
+    const cardCount = r.sales.filter((s) => s.payment_method === 'Card').length;
+    const mobileCount = r.sales.filter((s) => s.payment_method === 'Mobile').length;
+    const metricsEl = document.getElementById('metrics');
+    if (!metricsEl) return;
+    metricsEl.innerHTML = `
       <div class="metric"><span>Total Sales</span><strong>${money(r.total)}</strong></div>
       <div class="metric"><span>Orders</span><strong>${r.orders}</strong></div>
       <div class="metric"><span>Average Order</span><strong>${money(avg)}</strong></div>
-      <div class="metric"><span>Payment Split</span><strong style="font-size:1rem">${cashCount} cash · ${cardCount} card</strong></div>
+      <div class="metric"><span>Payment Split</span><strong style="font-size:.95rem">${cashCount} cash · ${cardCount} card · ${mobileCount} mobile</strong></div>
     `;
+  };
 
-    const pillClass = (m) => {
-      const x = (m || '').toLowerCase();
-      if (x === 'cash') return 'cash';
-      if (x === 'card') return 'card';
-      if (x === 'mobile') return 'mobile';
-      return '';
-    };
+  const pillClass = (m) => {
+    const x = (m || '').toLowerCase();
+    if (x === 'cash') return 'cash';
+    if (x === 'card') return 'card';
+    if (x === 'mobile') return 'mobile';
+    return '';
+  };
+
+  const renderTable = (r) => {
+    const tableEl = document.getElementById('sales-table');
+    if (!tableEl) return;
 
     if (!r.sales.length) {
-      $('#sales-table').innerHTML = '<div class="empty-state">No sales in this period.</div>';
+      tableEl.innerHTML = '<div class="empty-state">No sales in this period.</div>';
       return;
     }
 
-    $('#sales-table').innerHTML =
-      '<div class="row head"><span>Receipt</span><span>Payment</span><span>Date & Time</span><span>Total</span></div>' +
-      r.sales.map((i) => `
-        <div class="row">
-          <span class="receipt">#${String(i.id).padStart(4, '0')}${i.status === 'voided' ? ' <span class="pill voided">Voided</span>' : ''}</span>
-          <span><span class="pill ${pillClass(i.payment_method)}">${i.payment_method}</span></span>
-          <span>${new Date(i.sold_at).toLocaleString()}</span>
-          <span class="total">${money(i.total)}</span>
-        </div>`).join('');
+    let html =
+      '<div class="row head" style="grid-template-columns:1fr 1fr 1.3fr 1fr 1.6fr">' +
+      '<span>Receipt</span><span>Payment</span><span>Date & Time</span><span>Total</span><span></span>' +
+      '</div>';
+
+    for (const s of r.sales) {
+      const isOpen = expandedId === s.id;
+      const itemLine = s.itemSummary
+        ? `<div class="sale-items-summary">🧾 ${s.itemSummary}</div>`
+        : '';
+      const cashierLine = s.cashier_name
+        ? `<div class="sale-cashier">👤 ${s.cashier_name}</div>`
+        : '';
+
+      html += `
+        <div class="sale-block">
+          <div class="row sale-row" data-sale-id="${s.id}" style="grid-template-columns:1fr 1fr 1.3fr 1fr 1.6fr;cursor:pointer">
+            <span class="receipt">#${String(s.id).padStart(4, '0')}${s.status === 'voided' ? ' <span class="pill voided">Voided</span>' : ''}</span>
+            <span><span class="pill ${pillClass(s.payment_method)}">${s.payment_method}</span></span>
+            <span>${new Date(s.sold_at).toLocaleString()}</span>
+            <span class="total">${money(s.total)}</span>
+            <span style="display:flex;gap:6px;justify-content:flex-end;align-items:center">
+              <button class="print-btn" data-print="${s.id}" title="Print receipt" style="background:#0f2e24;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.72rem;cursor:pointer">🖨️ Print</button>
+              <span class="chevron" style="color:#75988a;font-size:.9rem">${isOpen ? '▲' : '▼'}</span>
+            </span>
+          </div>
+          ${itemLine}
+          ${cashierLine}
+          <div class="sale-detail" id="sale-detail-${s.id}" style="display:${isOpen ? 'block' : 'none'}">
+            <div style="padding:10px 0;color:#75988a;font-size:.78rem">Loading…</div>
+          </div>
+        </div>`;
+    }
+
+    tableEl.innerHTML = html;
+
+    // Row expand/collapse
+    document.querySelectorAll('.sale-row').forEach((row) => {
+      row.addEventListener('click', async (e) => {
+        // Don't expand if print button was clicked
+        if (e.target.closest('.print-btn')) return;
+
+        const id = Number(row.dataset.saleId);
+        const panel = document.getElementById(`sale-detail-${id}`);
+        const chevron = row.querySelector('.chevron');
+        if (!panel) return;
+
+        if (expandedId === id) {
+          expandedId = null;
+          panel.style.display = 'none';
+          if (chevron) chevron.textContent = '▼';
+          return;
+        }
+
+        document.querySelectorAll('.sale-detail').forEach((p) => (p.style.display = 'none'));
+        document.querySelectorAll('.sale-row .chevron').forEach((c) => (c.textContent = '▼'));
+
+        expandedId = id;
+        panel.style.display = 'block';
+        if (chevron) chevron.textContent = '▲';
+
+        const sale = r.sales.find((x) => x.id === id);
+        if (sale && sale.items && sale.items.length) {
+          renderDetail(panel, { sale, items: sale.items }, sale);
+        } else {
+          try {
+            const detail = await api(`/api/sales/${id}/details`);
+            renderDetail(panel, detail, sale);
+          } catch (err) {
+            panel.innerHTML = `<div style="padding:10px 0;color:#c53030;font-size:.8rem">${err.message}</div>`;
+          }
+        }
+      });
+    });
+
+    // Print button handlers
+    document.querySelectorAll('.print-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = Number(btn.dataset.print);
+        const sale = r.sales.find((s) => s.id === id);
+        if (!sale) return;
+
+        const receiptSale = {
+          saleId: sale.id,
+          total: sale.total,
+          paymentMethod: sale.payment_method,
+          sold_at: sale.sold_at,
+          cashier_name: sale.cashier_name,
+          taxRate: 8,
+          items: (sale.items || []).map((it) => ({
+            name: it.productName,
+            qty: it.quantity,
+            unit: it.unit,
+            price: it.lineTotal,
+            pricePerUnit: it.unitPrice,
+            unitPrice: it.unitPrice,
+            quantity: it.quantity,
+            lineTotal: it.lineTotal,
+            isWeight: ['kg', 'g', 'L', 'ml'].includes(it.unit),
+            isCustom: it.isCustom,
+          })),
+        };
+        if (typeof window.printReceipt === 'function') {
+          window.printReceipt(receiptSale);
+        } else {
+          toast('Print function not loaded — reload the page.');
+        }
+      });
+    });
+
+    // If a sale was already expanded, re-render it
+    if (expandedId) {
+      const panel = document.getElementById(`sale-detail-${expandedId}`);
+      const sale = r.sales.find((x) => x.id === expandedId);
+      if (panel && sale) {
+        if (sale.items && sale.items.length) {
+          renderDetail(panel, { sale, items: sale.items }, sale);
+        } else {
+          api(`/api/sales/${expandedId}/details`)
+            .then((detail) => renderDetail(panel, detail, sale))
+            .catch((err) => {
+              panel.innerHTML = `<div style="padding:10px 0;color:#c53030;font-size:.8rem">${err.message}</div>`;
+            });
+        }
+      }
+    }
   };
 
-  const data = await api('/api/admin/sales');
-  render(data);
+  const renderDetail = (panel, detail, sale) => {
+    const items = detail.items || [];
+    if (!items.length) {
+      panel.innerHTML = '<div style="padding:10px 0;color:#75988a;font-size:.8rem">No line items.</div>';
+      return;
+    }
 
-  $('#run').addEventListener('click', async () => {
-    const from = $('#from').value;
-    const to = $('#to').value;
-    const url = from && to ? `/api/admin/sales?from=${from}&to=${to}` : '/api/admin/sales';
-    render(await api(url));
-  });
+    let html = '<div class="detail-items">';
+    html += '<div class="detail-head"><span>Item</span><span>Qty</span><span>Price</span><span>Total</span></div>';
+
+    for (const i of items) {
+      const showUnit = ['kg', 'g', 'L', 'ml'].includes(i.unit);
+      const qtyDisplay = showUnit ? `${i.quantity}${i.unit}` : `${i.quantity}`;
+      const priceDisplay = showUnit
+        ? `${money(i.unitPrice)}/${i.unit === 'g' ? 'kg' : i.unit === 'ml' ? 'L' : i.unit}`
+        : money(i.unitPrice);
+
+      html += `
+        <div class="detail-row${i.isCustom ? ' custom' : ''}">
+          <span>
+            ${i.isCustom ? '📝 ' : ''}${i.productName || i.name}
+            ${i.sku ? `<small>${i.sku}</small>` : ''}
+          </span>
+          <span>${qtyDisplay}</span>
+          <span>${priceDisplay}</span>
+          <span>${money(i.lineTotal)}</span>
+        </div>`;
+    }
+
+    const subtotal = items.reduce((s, i) => s + Number(i.lineTotal), 0);
+    const total = Number(sale.total);
+    const tax = total - subtotal;
+
+    html += `
+      <div class="detail-summary">
+        <div><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
+        <div><span>Tax</span><strong>${money(tax)}</strong></div>
+        <div class="grand"><span>Total</span><strong>${money(total)}</strong></div>
+      </div>`;
+
+    html += '</div>';
+    panel.innerHTML = html;
+  };
+
+  const runFilter = async () => {
+    const from = document.getElementById('from')?.value;
+    const to = document.getElementById('to')?.value;
+    const url = from && to
+      ? `/api/admin/sales-detailed?from=${from}&to=${to}`
+      : '/api/admin/sales-detailed';
+    const data = await api(url);
+    renderMetrics(data);
+    renderTable(data);
+  };
+
+  await runFilter();
+
+  const runBtn = document.getElementById('run');
+  if (runBtn) runBtn.addEventListener('click', runFilter);
 }
 
 /* ============================================================
