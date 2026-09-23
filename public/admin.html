@@ -180,48 +180,7 @@
       </div>
     </main>
   </div>
-  <div class="toast" id="toast"></div>
-  <script src="/admin.js">
-
-    /* ============================================================
-   ADMIN TAB SWITCHING
-   ============================================================ */
-function setupTabs() {
-  const navLinks = document.querySelectorAll('#admin-nav a');
-  const sections = document.querySelectorAll('.admin-section');
-  const grid = document.querySelector('.admin-grid');
-
-  if (!navLinks.length) return;
-
-  function activateTab(name) {
-    // Update nav active state
-    navLinks.forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
-
-    // Show matching section, hide others
-    let found = false;
-    sections.forEach((sec) => {
-      const match = sec.dataset.section === name;
-      sec.classList.toggle('active', match);
-      if (match) found = true;
-    });
-
-    // If tab has no matching section (shouldn't happen), fall back to inventory
-    if (!found && name !== 'inventory') return activateTab('inventory');
-
-    // Single column layout when only one section is shown
-    if (grid) grid.classList.add('single-mode');
-  }
-
-  navLinks.forEach((link) => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      activateTab(link.dataset.tab);
-    });
-  });
-
-  // Default: inventory tab
-  activateTab('inventory');
-}
-  </script>
+    <div class="toast" id="toast"></div>
+  <script src="/admin.js"></script>
 </body>
 </html>
