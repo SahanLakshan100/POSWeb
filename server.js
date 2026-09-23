@@ -313,6 +313,59 @@ app.put('/api/settings', async (req, res) => {
   } catch (e) { fail(res, e.message); }
 });
 
+
+
+/* ============================================================
+   CATEGORIES
+   ============================================================ */
+app.get('/api/categories', async (_req, res) => {
+  try {
+    ok(res, await query('SELECT * FROM categories ORDER BY sort_order, name'));
+  } catch (e) { fail(res, e.message, 500); }
+});
+
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name, icon, sort_order } = req.body;
+    if (!name || !name.trim()) return fail(res, 'Category name required');
+    const r = await run(
+      'INSERT INTO categories (name, icon, sort_order) VALUES (?,?,?)',
+      [name.trim(), icon || '📦', Number(sort_order) || 0]
+    );
+    ok(res, { id: r.lastInsertRowid, message: 'Category added' });
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return fail(res, 'Category already exists');
+    fail(res, e.message);
+  }
+});
+
+app.put('/api/categories/:id', async (req, res) => {
+  try {
+    const { name, icon, sort_order } = req.body;
+    await run(
+      'UPDATE categories SET name=?, icon=?, sort_order=? WHERE id=?',
+      [name, icon || '📦', Number(sort_order) || 0, req.params.id]
+    );
+    ok(res, { message: 'Category updated' });
+  } catch (e) { fail(res, e.message); }
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const cat = await get('SELECT * FROM categories WHERE id=?', [req.params.id]);
+    if (!cat) return fail(res, 'Category not found');
+
+    // Check if any products use this category
+    const inUse = await get('SELECT COUNT(*) AS c FROM products WHERE category=?', [cat.name]);
+    if (Number(inUse.c) > 0) {
+      return fail(res, `Cannot delete: ${inUse.c} product(s) use "${cat.name}"`);
+    }
+
+    await run('DELETE FROM categories WHERE id=?', [req.params.id]);
+    ok(res, { message: 'Category deleted' });
+  } catch (e) { fail(res, e.message); }
+});
+
 /* ============================================================
    REPORTS
    ============================================================ */

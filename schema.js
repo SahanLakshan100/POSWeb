@@ -74,6 +74,14 @@ export async function initDatabase() {
       total REAL DEFAULT 0,
       held_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
+
+        `CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      icon TEXT DEFAULT '📦',
+      sort_order INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
   ];
 
   for (const sql of tables) {
@@ -92,6 +100,22 @@ export async function initDatabase() {
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* exists */ }
+  }
+
+    // Seed default categories if none exist
+  const catResult = await db.execute('SELECT COUNT(*) AS c FROM categories');
+  if (Number(catResult.rows[0].c) === 0) {
+    const defaultCats = [
+      `INSERT INTO categories (name, icon, sort_order) VALUES ('Coffee', '☕', 1)`,
+      `INSERT INTO categories (name, icon, sort_order) VALUES ('Tea', '🍵', 2)`,
+      `INSERT INTO categories (name, icon, sort_order) VALUES ('Bakery', '🥐', 3)`,
+      `INSERT INTO categories (name, icon, sort_order) VALUES ('Food', '🥪', 4)`,
+      `INSERT INTO categories (name, icon, sort_order) VALUES ('Other', '📦', 5)`,
+    ];
+    for (const sql of defaultCats) {
+      await db.execute(sql);
+    }
+    console.log('✅ Seeded default categories');
   }
 
   const defaults = [

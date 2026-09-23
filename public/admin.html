@@ -73,6 +73,7 @@
       </header>
       <nav class="admin-nav" id="admin-nav">
   <a class="active" href="#" data-tab="inventory">Inventory</a>
+    <a href="#" data-tab="categories">Categories</a>
   <a href="#" data-tab="customers">Customers</a>
   <a href="#" data-tab="suppliers">Suppliers</a>
   <a href="#" data-tab="expenses">Expenses</a>
@@ -87,14 +88,10 @@
             <label>SKU / barcode<input name="sku" required></label>
             <label>Product name<input name="name" required></label>
             <label>Category
-              <select name="category">
-                <option>Coffee</option>
-                <option>Tea</option>
-                <option>Bakery</option>
-                <option>Food</option>
-                <option>Other</option>
-              </select>
-            </label>
+  <select name="category" id="product-category-select" required>
+    <option value="">Loading…</option>
+  </select>
+</label>
             <label>Price<input name="price" required type="number" min="0" step="0.01"></label>
             <label>Was price (optional)<input name="compare_price" type="number" min="0" step="0.01" value="0" placeholder="Original price"></label>
             <label>Cost price (optional)<input name="cost_price" type="number" min="0" step="0.01" value="0" placeholder="Your cost"></label>
@@ -106,6 +103,20 @@
             </div>
           </form>
           <div class="admin-table" id="product-list"></div>
+        </section>
+
+
+                <section class="admin-card admin-section" data-section="categories" id="categories">
+          <h2>Product Categories</h2>
+          <form class="form-grid" id="category-form">
+            <label>Category name<input name="name" required placeholder="e.g. Beverages, Snacks"></label>
+            <label>Icon (emoji)<input name="icon" value="📦" maxlength="4" placeholder="☕"></label>
+            <label>Sort order<input name="sort_order" type="number" min="0" value="0"></label>
+            <div class="form-actions">
+              <button class="tool-btn primary" type="submit">Add category</button>
+            </div>
+          </form>
+          <div class="admin-table" id="category-list"></div>
         </section>
 
         <section class="admin-card admin-section" data-section="customers" id="customers">

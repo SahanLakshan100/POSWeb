@@ -4,6 +4,7 @@ const money = (v) => `$${Number(v).toFixed(2)}`;
 const EMOJI = { Coffee:'☕', Tea:'🍵', Bakery:'🥐', Food:'🥪', Other:'📦' };
 
 let allProducts = [];
+let allCategories = [];
 let activeCategory = 'All';
 let cart = [];
 let paymentMethod = 'Cash';
@@ -21,13 +22,25 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 /* ============================================================
-   LOAD PRODUCTS + SETTINGS
+   LOAD FROM API
    ============================================================ */
+async function loadCategories() {
+  try {
+    const res = await fetch('/api/categories');
+    if (!res.ok) throw new Error('categories ' + res.status);
+    allCategories = await res.json();
+  } catch (e) {
+    console.error('Category load failed:', e);
+    allCategories = [];
+  }
+}
+
 async function loadProducts() {
   try {
     const [productsRes, settingsRes] = await Promise.all([
       fetch('/api/products'),
       fetch('/api/settings'),
+      loadCategories(),
     ]);
     if (!productsRes.ok) throw new Error('API ' + productsRes.status);
     allProducts = await productsRes.json();
@@ -42,15 +55,20 @@ async function loadProducts() {
 }
 
 /* ============================================================
-   CATEGORIES
+   CATEGORY FILTER ROW (from DB)
    ============================================================ */
 function renderCategories() {
-  const cats = ['All', ...new Set(allProducts.map(p => p.category))];
-  $('#category-row').innerHTML = cats.map(c => `
-    <button class="category${c === activeCategory ? ' active' : ''}" data-cat="${c}">
-      ${c === 'All' ? 'All items' : c}
+  const items = [
+    { name: 'All', icon: '◈' },
+    ...allCategories.map((c) => ({ name: c.name, icon: c.icon || '📦' })),
+  ];
+
+  $('#category-row').innerHTML = items.map((c) => `
+    <button class="category${c.name === activeCategory ? ' active' : ''}" data-cat="${c.name}">
+      ${c.name === 'All' ? 'All items' : `${c.icon} ${c.name}`}
     </button>`).join('');
-  $$('.category').forEach(btn => {
+
+  $$('.category').forEach((btn) => {
     btn.onclick = () => {
       activeCategory = btn.dataset.cat;
       renderCategories();
@@ -62,9 +80,15 @@ function renderCategories() {
 /* ============================================================
    PRODUCTS GRID
    ============================================================ */
+function iconFor(categoryName) {
+  const cat = allCategories.find((c) => c.name === categoryName);
+  if (cat && cat.icon) return cat.icon;
+  return EMOJI[categoryName] || '📦';
+}
+
 function renderProducts() {
   const q = $('#search').value.trim().toLowerCase();
-  const list = allProducts.filter(p => {
+  const list = allProducts.filter((p) => {
     const okCat = activeCategory === 'All' || p.category === activeCategory;
     const okQ = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     return okCat && okQ;
@@ -75,7 +99,7 @@ function renderProducts() {
     return;
   }
 
-  $('#products').innerHTML = list.map(p => {
+  $('#products').innerHTML = list.map((p) => {
     const low = p.stock > 0 && p.stock <= (p.reorder_level || 5);
     const out = p.stock <= 0;
     const stockClass = out ? 'out' : (low ? 'low' : '');
@@ -87,7 +111,7 @@ function renderProducts() {
     return `
       <div class="product-card${out ? ' out-of-stock' : ''}" data-id="${p.id}">
         ${badge}
-        <div class="product-image">${EMOJI[p.category] || '📦'}</div>
+        <div class="product-image">${iconFor(p.category)}</div>
         <div class="prod-name">${p.name}</div>
         <div class="prod-meta">
           <span class="prod-price">${money(p.price)}${compare}</span>
@@ -96,7 +120,7 @@ function renderProducts() {
       </div>`;
   }).join('');
 
-  $$('.product-card').forEach(card => {
+  $$('.product-card').forEach((card) => {
     card.onclick = () => {
       if (card.classList.contains('out-of-stock')) return showToast('Item is out of stock');
       addToCart(Number(card.dataset.id));
@@ -108,24 +132,24 @@ function renderProducts() {
    CART
    ============================================================ */
 function addToCart(id) {
-  const p = allProducts.find(x => x.id === id);
+  const p = allProducts.find((x) => x.id === id);
   if (!p) return;
-  const existing = cart.find(i => i.id === id);
+  const existing = cart.find((i) => i.id === id);
   if (existing) existing.qty++;
   else cart.push({ id: p.id, name: p.name, price: Number(p.price), qty: 1 });
   renderCart();
 }
 
 function changeQty(id, delta) {
-  const item = cart.find(i => i.id === id);
+  const item = cart.find((i) => i.id === id);
   if (!item) return;
   item.qty += delta;
-  if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+  if (item.qty <= 0) cart = cart.filter((i) => i.id !== id);
   renderCart();
 }
 
 function voidLineItem(id) {
-  cart = cart.filter(i => i.id !== id);
+  cart = cart.filter((i) => i.id !== id);
   renderCart();
   showToast('Item removed');
 }
@@ -133,12 +157,9 @@ function voidLineItem(id) {
 function renderCart() {
   if (!cart.length) {
     $('#cart-items').innerHTML = `
-      <div class="empty-cart">
-        <span>+</span><p>Your order is empty</p>
-        <small>Select an item to get started</small>
-      </div>`;
+      <div class="empty-cart"><span>+</span><p>Your order is empty</p><small>Select an item to get started</small></div>`;
   } else {
-    $('#cart-items').innerHTML = cart.map(i => `
+    $('#cart-items').innerHTML = cart.map((i) => `
       <div class="cart-item">
         <div style="flex:1">
           <div class="cart-item-name">${i.name}</div>
@@ -151,12 +172,10 @@ function renderCart() {
           <button class="cart-item-void" data-void="${i.id}" title="Remove">×</button>
         </div>
       </div>`).join('');
-
-    $$('[data-dec]').forEach(b => b.onclick = () => changeQty(+b.dataset.dec, -1));
-    $$('[data-inc]').forEach(b => b.onclick = () => changeQty(+b.dataset.inc, +1));
-    $$('[data-void]').forEach(b => b.onclick = () => voidLineItem(+b.dataset.void));
+    $$('[data-dec]').forEach((b) => b.onclick = () => changeQty(+b.dataset.dec, -1));
+    $$('[data-inc]').forEach((b) => b.onclick = () => changeQty(+b.dataset.inc, +1));
+    $$('[data-void]').forEach((b) => b.onclick = () => voidLineItem(+b.dataset.void));
   }
-
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const tax = subtotal * (taxRate / 100);
   $('#subtotal').textContent = money(subtotal);
@@ -175,7 +194,7 @@ async function checkout() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         paymentMethod,
-        items: cart.map(i => ({ productId: i.id, quantity: i.qty })),
+        items: cart.map((i) => ({ productId: i.id, quantity: i.qty })),
       }),
     });
     const data = await res.json();
@@ -184,9 +203,7 @@ async function checkout() {
     cart = [];
     renderCart();
     loadProducts();
-  } catch (e) {
-    showToast('❌ ' + e.message);
-  }
+  } catch (e) { showToast('❌ ' + e.message); }
 }
 
 /* ============================================================
@@ -225,7 +242,7 @@ async function showHeldBills() {
       list.innerHTML = '<p style="color:#75988a;font-size:.82rem">No held bills.</p>';
       return;
     }
-    list.innerHTML = bills.map(b => `
+    list.innerHTML = bills.map((b) => `
       <div class="held-row">
         <div>
           <strong>${b.label}</strong>
@@ -237,8 +254,8 @@ async function showHeldBills() {
         </div>
       </div>`).join('');
 
-    $$('[data-resume]').forEach(btn => btn.onclick = () => resumeBill(bills.find(b => b.id === +btn.dataset.resume)));
-    $$('[data-delete-held]').forEach(btn => btn.onclick = async () => {
+    $$('[data-resume]').forEach((btn) => btn.onclick = () => resumeBill(bills.find((b) => b.id === +btn.dataset.resume)));
+    $$('[data-delete-held]').forEach((btn) => btn.onclick = async () => {
       await fetch(`/api/held-bills/${btn.dataset.deleteHeld}`, { method: 'DELETE' });
       showHeldBills();
     });
@@ -251,9 +268,7 @@ async function resumeBill(bill) {
   if (cart.length && !confirm('Current cart will be replaced. Continue?')) return;
   cart = bill.items || [];
   paymentMethod = bill.payment_method || 'Cash';
-  $$('.payment').forEach(b => {
-    b.classList.toggle('active', b.dataset.payment === paymentMethod);
-  });
+  $$('.payment').forEach((b) => b.classList.toggle('active', b.dataset.payment === paymentMethod));
   renderCart();
   await fetch(`/api/held-bills/${bill.id}`, { method: 'DELETE' });
   closeModal('resume-modal');
@@ -267,7 +282,7 @@ function openStockModal(mode) {
   currentStockMode = mode;
   const titles = { in: 'Stock In (Receive)', out: 'Stock Out (Remove)', adjustment: 'Stock Adjustment (Set Count)' };
   $('#stock-modal-title').textContent = titles[mode] || 'Stock Adjustment';
-  $('#stock-product').innerHTML = allProducts.map(p =>
+  $('#stock-product').innerHTML = allProducts.map((p) =>
     `<option value="${p.id}">${p.name} (${p.sku}) — ${p.stock} in stock</option>`).join('');
   $('#stock-qty').value = 1;
   $('#stock-reason').value = '';
@@ -294,7 +309,7 @@ async function submitStockAdjust() {
 }
 
 /* ============================================================
-   LOW STOCK VIEW
+   LOW STOCK
    ============================================================ */
 async function showLowStock() {
   const list = $('#low-stock-list');
@@ -307,7 +322,7 @@ async function showLowStock() {
       list.innerHTML = '<p style="color:#75988a;font-size:.82rem">All items are well stocked. ✅</p>';
       return;
     }
-    list.innerHTML = items.map(p => `
+    list.innerHTML = items.map((p) => `
       <div class="held-row">
         <div>
           <strong>${p.name}</strong>
@@ -315,7 +330,7 @@ async function showLowStock() {
         </div>
         <div><button class="resume" data-restock="${p.id}">+ Stock</button></div>
       </div>`).join('');
-    $$('[data-restock]').forEach(btn => btn.onclick = () => {
+    $$('[data-restock]').forEach((btn) => btn.onclick = () => {
       closeModal('low-stock-modal');
       openStockModal('in');
       setTimeout(() => { $('#stock-product').value = btn.dataset.restock; }, 50);
@@ -339,15 +354,15 @@ $('#void-btn').onclick = () => {
 $('#login-btn').onclick = () => { window.location.href = './admin.html'; };
 $('#stock-submit').onclick = submitStockAdjust;
 
-$$('.payment').forEach(b => {
+$$('.payment').forEach((b) => {
   b.onclick = () => {
-    $$('.payment').forEach(x => x.classList.remove('active'));
+    $$('.payment').forEach((x) => x.classList.remove('active'));
     b.classList.add('active');
     paymentMethod = b.dataset.payment;
   };
 });
 
-$$('.quick-btn').forEach(btn => {
+$$('.quick-btn').forEach((btn) => {
   btn.onclick = () => {
     const action = btn.dataset.action;
     if (action === 'stock-in') openStockModal('in');
@@ -362,16 +377,13 @@ $$('.quick-btn').forEach(btn => {
   };
 });
 
-$$('[data-close-modal]').forEach(btn => btn.onclick = () => {
+$$('[data-close-modal]').forEach((btn) => btn.onclick = () => {
   const modal = btn.closest('.modal-bg');
   if (modal) modal.classList.remove('open');
 });
 
-/* Click outside modal to close */
-$$('.modal-bg').forEach(bg => {
-  bg.onclick = (e) => {
-    if (e.target === bg) bg.classList.remove('open');
-  };
+$$('.modal-bg').forEach((bg) => {
+  bg.onclick = (e) => { if (e.target === bg) bg.classList.remove('open'); };
 });
 
 /* BOOT */

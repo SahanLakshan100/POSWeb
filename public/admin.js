@@ -1,5 +1,7 @@
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
 const money = (v) => `$${Number(v).toFixed(2)}`;
+
 const showToast = (msg) => {
   const t = $('#toast');
   t.textContent = msg;
@@ -14,6 +16,9 @@ async function request(url, options) {
   return data;
 }
 
+/* ============================================================
+   LOGIN
+   ============================================================ */
 async function login(event) {
   event.preventDefault();
   try {
@@ -29,6 +34,9 @@ async function login(event) {
   } catch (e) { showToast(e.message); }
 }
 
+/* ============================================================
+   SAVE FORM (products / customers / suppliers / expenses)
+   ============================================================ */
 async function saveForm(event, url, message) {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(event.target).entries());
@@ -52,44 +60,90 @@ async function saveForm(event, url, message) {
   } catch (e) { showToast(e.message); }
 }
 
+/* ============================================================
+   LOAD EVERYTHING
+   ============================================================ */
 async function loadAll() {
-  const [products, customers, suppliers, expenses, settings] = await Promise.all([
+  const [products, customers, suppliers, expenses, settings, categories] = await Promise.all([
     request('/api/products'),
     request('/api/customers'),
     request('/api/suppliers'),
     request('/api/expenses'),
     request('/api/settings'),
+    request('/api/categories').catch(() => []),  // graceful fallback if table not ready
   ]);
 
-  $('#product-list').innerHTML = '<div class="admin-row"><b>Product</b><b>Price</b><b>Stock</b><b>Actions</b></div>' +
-    products.map((p) => `<div class="admin-row"><span>${p.name}<br><small>${p.sku}</small></span><span>${money(p.price)}</span><span>${p.stock}</span><span><button data-edit="${p.id}">Edit</button><button data-delete="${p.id}">Delete</button></span></div>`).join('');
-
-  $('#customer-list').innerHTML = customers.length
-    ? customers.map((c) => `<div class="admin-row"><span>${c.name}</span><span>${c.phone || '-'}</span><span>${c.email || '-'}</span></div>`).join('')
-    : '<p class="muted">No customers yet.</p>';
-
-  $('#supplier-list').innerHTML = suppliers.length
-    ? suppliers.map((c) => `<div class="admin-row"><span>${c.name}</span><span>${c.phone || '-'}</span><span>${c.email || '-'}</span></div>`).join('')
-    : '<p class="muted">No suppliers yet.</p>';
-
-  $('#expense-list').innerHTML = expenses.length
-    ? expenses.map((c) => `<div class="admin-row"><span>${c.description}</span><span>${c.category}</span><span>${money(c.amount)}</span></div>`).join('')
-    : '<p class="muted">No expenses yet.</p>';
-
-  $('#settings-form [name="storeName"]').value = settings.storeName;
-  $('#settings-form [name="taxRate"]').value = settings.taxRate;
-  $('#settings-form [name="currency"]').value = settings.currency;
-  if ($('#settings-form [name="allowNegativeStock"]')) {
-    $('#settings-form [name="allowNegativeStock"]').value = settings.allowNegativeStock ? 'true' : 'false';
+  /* ---- Products ---- */
+  const prodList = $('#product-list');
+  if (prodList) {
+    prodList.innerHTML = '<div class="admin-row"><b>Product</b><b>Price</b><b>Stock</b><b>Actions</b></div>' +
+      products.map((p) => `<div class="admin-row"><span>${p.name}<br><small>${p.sku}</small></span><span>${money(p.price)}</span><span>${p.stock}</span><span><button data-edit="${p.id}">Edit</button><button data-delete="${p.id}">Delete</button></span></div>`).join('');
   }
 
-  document.querySelectorAll('[data-delete]').forEach((b) => b.addEventListener('click', async () => {
+  /* ---- Customers ---- */
+  const custList = $('#customer-list');
+  if (custList) {
+    custList.innerHTML = customers.length
+      ? '<div class="admin-row"><b>Name</b><b>Phone</b><b>Email</b><b></b></div>' +
+        customers.map((c) => `<div class="admin-row"><span>${c.name}</span><span>${c.phone || '-'}</span><span>${c.email || '-'}</span><span></span></div>`).join('')
+      : '<p class="muted">No customers yet.</p>';
+  }
+
+  /* ---- Suppliers ---- */
+  const supList = $('#supplier-list');
+  if (supList) {
+    supList.innerHTML = suppliers.length
+      ? '<div class="admin-row"><b>Name</b><b>Phone</b><b>Email</b><b></b></div>' +
+        suppliers.map((c) => `<div class="admin-row"><span>${c.name}</span><span>${c.phone || '-'}</span><span>${c.email || '-'}</span><span></span></div>`).join('')
+      : '<p class="muted">No suppliers yet.</p>';
+  }
+
+  /* ---- Expenses ---- */
+  const expList = $('#expense-list');
+  if (expList) {
+    expList.innerHTML = expenses.length
+      ? '<div class="admin-row"><b>Description</b><b>Category</b><b>Amount</b><b></b></div>' +
+        expenses.map((c) => `<div class="admin-row"><span>${c.description}</span><span>${c.category}</span><span>${money(c.amount)}</span><span></span></div>`).join('')
+      : '<p class="muted">No expenses yet.</p>';
+  }
+
+  /* ---- Settings ---- */
+  const settingsForm = $('#settings-form');
+  if (settingsForm) {
+    settingsForm.elements.storeName.value = settings.storeName;
+    settingsForm.elements.taxRate.value = settings.taxRate;
+    settingsForm.elements.currency.value = settings.currency;
+    if (settingsForm.elements.allowNegativeStock) {
+      settingsForm.elements.allowNegativeStock.value = settings.allowNegativeStock ? 'true' : 'false';
+    }
+  }
+
+  /* ---- Categories list ---- */
+  const catList = $('#category-list');
+  if (catList) {
+    catList.innerHTML = categories.length
+      ? '<div class="admin-row"><b>Icon</b><b>Name</b><b>Sort</b><b>Actions</b></div>' +
+        categories.map((c) => `<div class="admin-row"><span style="font-size:1.4rem">${c.icon || '📦'}</span><span>${c.name}</span><span>${c.sort_order || 0}</span><span><button data-edit-cat="${c.id}">Edit</button><button data-delete-cat="${c.id}">Delete</button></span></div>`).join('')
+      : '<p class="muted">No categories yet.</p>';
+  }
+
+  /* ---- Populate product form's category dropdown ---- */
+  const catSelect = $('#product-category-select');
+  if (catSelect) {
+    const currentValue = catSelect.value;
+    catSelect.innerHTML = '<option value="">— Select category —</option>' +
+      categories.map((c) => `<option value="${c.name}">${c.icon || ''} ${c.name}</option>`).join('');
+    if (currentValue) catSelect.value = currentValue;
+  }
+
+  /* ---- Product edit/delete ---- */
+  $$('[data-delete]').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('Delete this product?')) return;
     try { await request(`/api/products/${b.dataset.delete}`, { method: 'DELETE' }); await loadAll(); showToast('Product deleted'); }
     catch (e) { showToast(e.message); }
   }));
 
-  document.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', async () => {
+  $$('[data-edit]').forEach((b) => b.addEventListener('click', async () => {
     const p = products.find((x) => x.id === Number(b.dataset.edit));
     const name = prompt('Product name:', p.name);
     if (name === null) return;
@@ -113,20 +167,50 @@ async function loadAll() {
       showToast('Product updated');
     } catch (e) { showToast(e.message); }
   }));
+
+  /* ---- Category edit/delete ---- */
+  $$('[data-delete-cat]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Delete this category?')) return;
+    try {
+      await request(`/api/categories/${b.dataset.deleteCat}`, { method: 'DELETE' });
+      await loadAll();
+      showToast('Category deleted');
+    } catch (e) { showToast(e.message); }
+  }));
+
+  $$('[data-edit-cat]').forEach((b) => b.addEventListener('click', async () => {
+    const c = categories.find((x) => x.id === Number(b.dataset.editCat));
+    const name = prompt('Category name:', c.name);
+    if (name === null) return;
+    const icon = prompt('Icon (emoji):', c.icon || '📦');
+    const sort_order = prompt('Sort order:', c.sort_order || 0);
+    try {
+      await request(`/api/categories/${c.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, icon, sort_order: Number(sort_order) }),
+      });
+      await loadAll();
+      showToast('Category updated');
+    } catch (e) { showToast(e.message); }
+  }));
 }
 
+/* ============================================================
+   SAVE SETTINGS
+   ============================================================ */
 async function saveSettings(event) {
   event.preventDefault();
   const form = new FormData(event.target);
+  const payload = {
+    storeName: form.get('storeName'),
+    taxRate: Number(form.get('taxRate')),
+    currency: form.get('currency'),
+  };
+  if (form.get('allowNegativeStock') !== null) {
+    payload.allowNegativeStock = form.get('allowNegativeStock') === 'true';
+  }
   try {
-    const payload = {
-      storeName: form.get('storeName'),
-      taxRate: Number(form.get('taxRate')),
-      currency: form.get('currency'),
-    };
-    if (form.get('allowNegativeStock') !== null) {
-      payload.allowNegativeStock = form.get('allowNegativeStock') === 'true';
-    }
     await request('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -136,6 +220,9 @@ async function saveSettings(event) {
   } catch (e) { showToast(e.message); }
 }
 
+/* ============================================================
+   REPORTS
+   ============================================================ */
 async function runReport() {
   const from = $('#report-from').value;
   const to = $('#report-to').value;
@@ -152,11 +239,36 @@ async function runReport() {
 }
 
 /* ============================================================
+   ADD CATEGORY
+   ============================================================ */
+async function addCategory(event) {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const payload = {
+    name: form.get('name'),
+    icon: form.get('icon'),
+    sort_order: Number(form.get('sort_order')) || 0,
+  };
+  try {
+    await request('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    event.target.reset();
+    event.target.elements.icon.value = '📦';
+    event.target.elements.sort_order.value = 0;
+    await loadAll();
+    showToast('Category added');
+  } catch (e) { showToast(e.message); }
+}
+
+/* ============================================================
    ADMIN TAB SWITCHING
    ============================================================ */
 function setupTabs() {
-  const navLinks = document.querySelectorAll('#admin-nav a');
-  const sections = document.querySelectorAll('.admin-section');
+  const navLinks = $$('#admin-nav a');
+  const sections = $$('.admin-section');
   const grid = document.querySelector('.admin-grid');
   if (!navLinks.length) return;
 
@@ -185,6 +297,7 @@ $('#customer-form').addEventListener('submit', (e) => saveForm(e, '/api/customer
 $('#supplier-form').addEventListener('submit', (e) => saveForm(e, '/api/suppliers', 'Supplier added'));
 $('#expense-form').addEventListener('submit', (e) => saveForm(e, '/api/expenses', 'Expense recorded'));
 $('#settings-form').addEventListener('submit', saveSettings);
+$('#category-form').addEventListener('submit', addCategory);
 $('#report-btn').addEventListener('click', runReport);
 $('#backup-btn').addEventListener('click', () => { window.location.href = '/api/backup'; });
 
@@ -204,7 +317,7 @@ $('#restore-file').addEventListener('change', async (event) => {
 });
 
 /* ============================================================
-   BOOT — runs LAST, after everything is defined
+   BOOT
    ============================================================ */
 setupTabs();
 
