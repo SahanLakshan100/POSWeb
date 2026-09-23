@@ -707,7 +707,14 @@ if (loginForm) {
   loginForm.addEventListener('submit', login);
 }
 
-if (!loginScreen || sessionStorage.getItem('pos-admin') === 'true') {
-  if (loginScreen) loginScreen.hidden = true;
+// If no login screen on page, or user already logged in this session, load.
+// Otherwise, wait for login (the login() function calls loadPage()).
+if (!loginScreen) {
   loadPage().catch((e) => toast(e.message));
+} else if (sessionStorage.getItem('pos-admin') === 'true') {
+  loginScreen.hidden = true;
+  loadPage().catch((e) => toast(e.message));
+} else {
+  // Show login screen (default state)
+  loginScreen.hidden = false;
 }

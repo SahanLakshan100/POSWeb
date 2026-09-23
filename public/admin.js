@@ -4,6 +4,7 @@ const money = (v) => `$${Number(v).toFixed(2)}`;
 
 const showToast = (msg) => {
   const t = $('#toast');
+  if (!t) { alert(msg); return; }
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2600);
@@ -23,15 +24,20 @@ async function login(event) {
   event.preventDefault();
   try {
     const form = new FormData(event.target);
-    await request('/api/auth/login', {
+    const result = await request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.fromEntries(form.entries())),
     });
     sessionStorage.setItem('pos-admin', 'true');
+    if (result.user) {
+      sessionStorage.setItem('pos-user', JSON.stringify(result.user));
+    }
     $('#login-screen').style.display = 'none';
     await loadAll();
-  } catch (e) { showToast(e.message); }
+  } catch (e) {
+    showToast(e.message || 'Login failed');
+  }
 }
 
 /* ============================================================
@@ -177,7 +183,7 @@ async function loadAll() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sku: p.sku, name, category: p.category,
+          sku: p.sku, name, category: p.category, unit: p.unit || 'piece',
           price: Number(price),
           compare_price: Number(compare_price),
           reorder_level: Number(reorder_level),
@@ -384,31 +390,53 @@ function setupTabs() {
 /* ============================================================
    EVENT LISTENERS
    ============================================================ */
-$('#admin-login').addEventListener('submit', login);
-$('#product-form').addEventListener('submit', (e) => saveForm(e, '/api/products', 'Product added'));
-$('#customer-form').addEventListener('submit', (e) => saveForm(e, '/api/customers', 'Customer added'));
-$('#supplier-form').addEventListener('submit', (e) => saveForm(e, '/api/suppliers', 'Supplier added'));
-$('#expense-form').addEventListener('submit', (e) => saveForm(e, '/api/expenses', 'Expense recorded'));
-$('#settings-form').addEventListener('submit', saveSettings);
-$('#category-form').addEventListener('submit', addCategory);
-$('#user-form').addEventListener('submit', addUser);
-$('#report-btn').addEventListener('click', runReport);
-$('#backup-btn').addEventListener('click', () => { window.location.href = '/api/backup'; });
+const loginFormEl = document.getElementById('admin-login');
+if (loginFormEl) loginFormEl.addEventListener('submit', login);
 
-$('#restore-file').addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  const snapshot = JSON.parse(await file.text());
-  try {
-    const r = await request('/api/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snapshot }),
-    });
-    showToast(r.message);
-    await loadAll();
-  } catch (e) { showToast(e.message); }
-});
+const pf = document.getElementById('product-form');
+if (pf) pf.addEventListener('submit', (e) => saveForm(e, '/api/products', 'Product added'));
+
+const cf = document.getElementById('customer-form');
+if (cf) cf.addEventListener('submit', (e) => saveForm(e, '/api/customers', 'Customer added'));
+
+const sf = document.getElementById('supplier-form');
+if (sf) sf.addEventListener('submit', (e) => saveForm(e, '/api/suppliers', 'Supplier added'));
+
+const ef = document.getElementById('expense-form');
+if (ef) ef.addEventListener('submit', (e) => saveForm(e, '/api/expenses', 'Expense recorded'));
+
+const setF = document.getElementById('settings-form');
+if (setF) setF.addEventListener('submit', saveSettings);
+
+const catF = document.getElementById('category-form');
+if (catF) catF.addEventListener('submit', addCategory);
+
+const userF = document.getElementById('user-form');
+if (userF) userF.addEventListener('submit', addUser);
+
+const reportBtn = document.getElementById('report-btn');
+if (reportBtn) reportBtn.addEventListener('click', runReport);
+
+const backupBtn = document.getElementById('backup-btn');
+if (backupBtn) backupBtn.addEventListener('click', () => { window.location.href = '/api/backup'; });
+
+const restoreFile = document.getElementById('restore-file');
+if (restoreFile) {
+  restoreFile.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const snapshot = JSON.parse(await file.text());
+    try {
+      const r = await request('/api/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshot }),
+      });
+      showToast(r.message);
+      await loadAll();
+    } catch (e) { showToast(e.message); }
+  });
+}
 
 /* ============================================================
    BOOT
@@ -416,6 +444,7 @@ $('#restore-file').addEventListener('change', async (event) => {
 setupTabs();
 
 if (sessionStorage.getItem('pos-admin') === 'true') {
-  $('#login-screen').style.display = 'none';
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.style.display = 'none';
   loadAll().catch((e) => showToast(e.message));
 }

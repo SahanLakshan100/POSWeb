@@ -296,11 +296,11 @@ app.delete('/api/held-bills/:id', async (req, res) => {
 });
 
 /* ============================================================
-   CHECKOUT — weight products + custom items
+   CHECKOUT — weight products + custom items + cashier
    ============================================================ */
 app.post('/api/checkout', async (req, res) => {
   try {
-    const { paymentMethod, items } = req.body;
+    const { paymentMethod, items, cashierId, cashierName } = req.body;
     if (!items?.length) return fail(res, 'Cart is empty');
 
     const allowNegSetting = await get("SELECT value FROM settings WHERE key='allowNegativeStock'");
@@ -315,7 +315,6 @@ app.post('/api/checkout', async (req, res) => {
         const unit = item.unit || 'piece';
         const qty = Number(item.qty);
         const pricePerUnit = Number(item.pricePerUnit);
-        // For g / ml, the price is quoted per kg / L → divide by 1000
         let effectiveQty = qty;
         if (unit === 'g' || unit === 'ml') effectiveQty = qty / 1000;
         const lineTotal = Number(item.lineTotal) || (pricePerUnit * effectiveQty);
@@ -336,7 +335,6 @@ app.post('/api/checkout', async (req, res) => {
       const p = await get('SELECT * FROM products WHERE id=?', [item.productId]);
       if (!p) return fail(res, `Product ${item.productId} not found`);
 
-      // item.quantity can be fractional for weight items (0.5 kg) or integer for pieces
       const qty = Number(item.quantity);
       if (!qty || qty <= 0) return fail(res, `Invalid quantity for ${p.name}`);
       if (!allowNeg && p.stock < qty) {
@@ -359,14 +357,13 @@ app.post('/api/checkout', async (req, res) => {
     const total = subtotal * (1 + taxRate / 100);
 
     const saleResult = await run(
-      'INSERT INTO sales (total, payment_method, status) VALUES (?,?,?)',
-      [total, paymentMethod, 'completed']
+      'INSERT INTO sales (total, payment_method, status, cashier_id, cashier_name) VALUES (?,?,?,?,?)',
+      [total, paymentMethod, 'completed', cashierId || null, cashierName || null]
     );
     const saleId = saleResult.lastInsertRowid;
 
     for (const item of lineItems) {
       if (item.custom) {
-        // Custom item — insert with product_id NULL, no stock movement
         await run(
           `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, line_total)
            VALUES (?, NULL, ?, ?, ?)`,
@@ -399,7 +396,6 @@ app.post('/api/sales/:id/void', async (req, res) => {
     if (sale.status === 'voided') return fail(res, 'Sale already voided');
     const items = await query('SELECT * FROM sale_items WHERE sale_id=?', [req.params.id]);
     for (const item of items) {
-      // Skip custom items (product_id is NULL)
       if (!item.product_id) continue;
       await run('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
       await run(
@@ -413,12 +409,47 @@ app.post('/api/sales/:id/void', async (req, res) => {
 });
 
 /* ============================================================
-   SALES
+   SALE DETAILS — line items for a single sale
+   ============================================================ */
+app.get('/api/sales/:id/details', async (req, res) => {
+  try {
+    const sale = await get('SELECT * FROM sales WHERE id = ?', [req.params.id]);
+    if (!sale) return fail(res, 'Sale not found', 404);
+
+    const items = await query(
+      `SELECT si.*, p.name AS product_name, p.sku AS product_sku, p.unit AS product_unit
+       FROM sale_items si
+       LEFT JOIN products p ON p.id = si.product_id
+       WHERE si.sale_id = ?
+       ORDER BY si.id`,
+      [req.params.id]
+    );
+
+    ok(res, {
+      sale,
+      items: items.map((i) => ({
+        id: i.id,
+        productId: i.product_id,
+        productName: i.product_name || (i.product_id ? `Product #${i.product_id}` : '— Custom item —'),
+        sku: i.product_sku || '',
+        unit: i.product_unit || 'piece',
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unit_price),
+        lineTotal: Number(i.line_total),
+        isCustom: i.product_id === null,
+      })),
+    });
+  } catch (e) { fail(res, e.message, 500); }
+});
+
+/* ============================================================
+   SALES LIST
    ============================================================ */
 app.get('/api/sales', async (_req, res) => {
   try { ok(res, await query("SELECT * FROM sales WHERE status != 'voided' ORDER BY sold_at DESC LIMIT 50")); }
   catch (e) { fail(res, e.message, 500); }
 });
+
 app.get('/api/admin/sales', async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -429,6 +460,58 @@ app.get('/api/admin/sales', async (req, res) => {
     const sales = await query(sql, params);
     const total = sales.reduce((s, x) => s + Number(x.total), 0);
     ok(res, { sales, total, orders: sales.length });
+  } catch (e) { fail(res, e.message, 500); }
+});
+
+/* ============================================================
+   ADMIN SALES — DETAILED (with items + summary per sale)
+   ============================================================ */
+app.get('/api/admin/sales-detailed', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let sql = "SELECT * FROM sales WHERE status != 'voided'";
+    const params = [];
+    if (from && to) { sql += ' AND DATE(sold_at) BETWEEN ? AND ?'; params.push(from, to); }
+    sql += ' ORDER BY sold_at DESC LIMIT 500';
+    const sales = await query(sql, params);
+
+    if (!sales.length) return ok(res, { sales: [], total: 0, orders: 0 });
+
+    const saleIds = sales.map((s) => s.id);
+    const placeholders = saleIds.map(() => '?').join(',');
+    const items = await query(
+      `SELECT si.sale_id, si.product_id, si.quantity, si.unit_price, si.line_total,
+              p.name AS product_name, p.sku AS product_sku, p.unit AS product_unit
+       FROM sale_items si
+       LEFT JOIN products p ON p.id = si.product_id
+       WHERE si.sale_id IN (${placeholders})
+       ORDER BY si.sale_id, si.id`,
+      saleIds
+    );
+
+    const itemsBySale = {};
+    for (const it of items) {
+      if (!itemsBySale[it.sale_id]) itemsBySale[it.sale_id] = [];
+      itemsBySale[it.sale_id].push({
+        productId: it.product_id,
+        productName: it.product_name || (it.product_id ? `Product #${it.product_id}` : 'Custom item'),
+        sku: it.product_sku || '',
+        unit: it.product_unit || 'piece',
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unit_price),
+        lineTotal: Number(it.line_total),
+        isCustom: it.product_id === null,
+      });
+    }
+
+    const enriched = sales.map((s) => ({
+      ...s,
+      items: itemsBySale[s.id] || [],
+      itemSummary: (itemsBySale[s.id] || []).map((i) => i.productName).join(', '),
+    }));
+
+    const total = sales.reduce((s, x) => s + Number(x.total), 0);
+    ok(res, { sales: enriched, total, orders: sales.length });
   } catch (e) { fail(res, e.message, 500); }
 });
 
@@ -549,7 +632,7 @@ app.get('/api/backup', async (_req, res) => {
     ]);
     const snapshot = {
       exportedAt: new Date().toISOString(),
-      version: 5,
+      version: 6,
       data: { products, sales, saleItems, customers, suppliers, expenses, settings, stockMovements, heldBills, users, categories },
     };
     res.setHeader('Content-Type', 'application/json');
@@ -571,7 +654,7 @@ app.post('/api/restore', async (req, res) => {
     for (const c of d.categories || []) await run('INSERT INTO categories (id,name,icon,sort_order,created_at) VALUES (?,?,?,?,?)', [c.id,c.name,c.icon,c.sort_order,c.created_at]);
     for (const u of d.users || []) await run('INSERT INTO users (id,username,password_hash,full_name,role,active,created_at) VALUES (?,?,?,?,?,?,?)', [u.id,u.username,u.password_hash,u.full_name,u.role,u.active,u.created_at]);
     for (const p of d.products || []) await run('INSERT INTO products (id,sku,name,category,unit,price,compare_price,cost_price,reorder_level,stock,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [p.id,p.sku,p.name,p.category,p.unit||'piece',p.price,p.compare_price||0,p.cost_price||0,p.reorder_level||5,p.stock,p.created_at]);
-    for (const s of d.sales || []) await run('INSERT INTO sales (id,total,payment_method,status,voided_at,sold_at) VALUES (?,?,?,?,?,?)', [s.id,s.total,s.payment_method,s.status||'completed',s.voided_at||null,s.sold_at]);
+    for (const s of d.sales || []) await run('INSERT INTO sales (id,total,payment_method,status,voided_at,sold_at,cashier_id,cashier_name) VALUES (?,?,?,?,?,?,?,?)', [s.id,s.total,s.payment_method,s.status||'completed',s.voided_at||null,s.sold_at,s.cashier_id||null,s.cashier_name||null]);
     for (const si of d.saleItems || []) await run('INSERT INTO sale_items (id,sale_id,product_id,quantity,unit_price,line_total) VALUES (?,?,?,?,?,?)', [si.id,si.sale_id,si.product_id,si.quantity,si.unit_price,si.line_total||si.unit_price*si.quantity]);
     for (const c of d.customers || []) await run('INSERT INTO customers (id,name,phone,email,notes,created_at) VALUES (?,?,?,?,?,?)', [c.id,c.name,c.phone,c.email,c.notes,c.created_at]);
     for (const s of d.suppliers || []) await run('INSERT INTO suppliers (id,name,phone,email,notes,created_at) VALUES (?,?,?,?,?,?)', [s.id,s.name,s.phone,s.email,s.notes,s.created_at]);
