@@ -81,12 +81,14 @@ export async function initDatabase() {
   }
 
   // Safe column adds for existing tables (ignored if column already exists)
+   // Safe column adds for existing tables (ignored if column already exists)
   const alters = [
     `ALTER TABLE products ADD COLUMN compare_price REAL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN reorder_level INTEGER DEFAULT 5`,
     `ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'completed'`,
     `ALTER TABLE sales ADD COLUMN voided_at DATETIME`,
+    `ALTER TABLE sale_items ADD COLUMN line_total REAL DEFAULT 0`,
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* exists */ }

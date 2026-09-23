@@ -27,13 +27,26 @@ async function login(event) {
 async function saveForm(event, url, message) {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(event.target).entries());
-  if (payload.amount) payload.amount = Number(payload.amount);
+
+  // Convert numeric fields
+  ['amount', 'price', 'compare_price', 'cost_price', 'reorder_level', 'stock', 'taxRate'].forEach((k) => {
+    if (payload[k] !== undefined && payload[k] !== '') {
+      payload[k] = Number(payload[k]);
+    }
+  });
+
   try {
-    await request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    await request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
     event.target.reset();
     await loadAll();
     showToast(message);
-  } catch (e) { showToast(e.message); }
+  } catch (e) {
+    showToast(e.message);
+  }
 }
 
 async function loadAll() {
