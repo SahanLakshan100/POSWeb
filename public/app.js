@@ -13,6 +13,7 @@ let currentStockMode = 'in';
 
 function showToast(msg) {
   const t = $('#toast');
+  if (!t) { alert(msg); return; }
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2600);
@@ -20,6 +21,31 @@ function showToast(msg) {
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ============================================================
+   LOGIN GATE
+   ============================================================ */
+async function handlePosLogin(event) {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: form.get('username'),
+        password: form.get('password'),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Invalid credentials');
+    sessionStorage.setItem('pos-cashier', 'true');
+    document.getElementById('pos-login').classList.add('hidden');
+    loadProducts();
+  } catch (e) {
+    showToast(e.message || 'Login failed');
+  }
+}
 
 /* ============================================================
    LOAD FROM API
@@ -386,5 +412,19 @@ $$('.modal-bg').forEach((bg) => {
   bg.onclick = (e) => { if (e.target === bg) bg.classList.remove('open'); };
 });
 
-/* BOOT */
-loadProducts();
+/* ============================================================
+   BOOT — gate the POS behind login
+   ============================================================ */
+const posLoginForm = document.getElementById('pos-login-form');
+const posLoginScreen = document.getElementById('pos-login');
+
+if (posLoginForm) {
+  posLoginForm.addEventListener('submit', handlePosLogin);
+}
+
+if (posLoginScreen && sessionStorage.getItem('pos-cashier') === 'true') {
+  posLoginScreen.classList.add('hidden');
+  loadProducts();
+} else if (!posLoginScreen) {
+  loadProducts();
+}

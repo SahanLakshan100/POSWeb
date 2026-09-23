@@ -79,6 +79,7 @@
   <a href="#" data-tab="expenses">Expenses</a>
   <a href="#" data-tab="reports">Reports</a>
   <a href="#" data-tab="settings">Settings</a>
+    <a href="#" data-tab="users">Users</a>
   <a href="#" data-tab="backup">Backup</a>
 </nav>
             <div class="admin-grid">
@@ -178,6 +179,26 @@
             </label>
             <div class="form-actions"><button class="tool-btn primary">Save settings</button></div>
           </form>
+        </section>
+
+                <section class="admin-card admin-section" data-section="users" id="users">
+          <h2>User Accounts</h2>
+          <p class="muted" style="margin-bottom:14px">Manage who can log in to the POS.</p>
+          <form class="form-grid" id="user-form">
+            <label>Username<input name="username" required placeholder="e.g. cashier1"></label>
+            <label>Full name<input name="full_name" placeholder="e.g. Sahan L."></label>
+            <label>Password<input name="password" type="password" required minlength="4" placeholder="min 4 chars"></label>
+            <label>Role
+              <select name="role">
+                <option value="cashier">Cashier</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button class="tool-btn primary" type="submit">Add user</button>
+            </div>
+          </form>
+          <div class="admin-table" id="user-list"></div>
         </section>
 
         <section class="admin-card admin-section" data-section="backup" id="backup">

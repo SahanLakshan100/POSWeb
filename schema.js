@@ -74,12 +74,20 @@ export async function initDatabase() {
       total REAL DEFAULT 0,
       held_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
-
-        `CREATE TABLE IF NOT EXISTS categories (
+    `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
       icon TEXT DEFAULT '📦',
       sort_order INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      full_name TEXT,
+      role TEXT DEFAULT 'cashier',
+      active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
   ];
@@ -89,7 +97,6 @@ export async function initDatabase() {
   }
 
   // Safe column adds for existing tables (ignored if column already exists)
-   // Safe column adds for existing tables (ignored if column already exists)
   const alters = [
     `ALTER TABLE products ADD COLUMN compare_price REAL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0`,
@@ -102,7 +109,7 @@ export async function initDatabase() {
     try { await db.execute(sql); } catch { /* exists */ }
   }
 
-    // Seed default categories if none exist
+  // Seed default categories if none exist
   const catResult = await db.execute('SELECT COUNT(*) AS c FROM categories');
   if (Number(catResult.rows[0].c) === 0) {
     const defaultCats = [
@@ -116,6 +123,16 @@ export async function initDatabase() {
       await db.execute(sql);
     }
     console.log('✅ Seeded default categories');
+  }
+
+  // Seed default admin user if none exist
+  const userResult = await db.execute('SELECT COUNT(*) AS c FROM users');
+  if (Number(userResult.rows[0].c) === 0) {
+    await db.execute({
+      sql: 'INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
+      args: ['admin', 'admin123', 'Administrator', 'admin'],
+    });
+    console.log('✅ Seeded default admin user (admin / admin123)');
   }
 
   const defaults = [

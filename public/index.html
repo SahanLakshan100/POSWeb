@@ -162,11 +162,54 @@
       transform:translateY(100px); transition:.25s; z-index:200; }
     .toast.show { transform:translateY(0); }
 
+
+        /* ---- Login overlay ---- */
+    .pos-login { position:fixed; inset:0; background:#f6f9fc; z-index:500;
+      display:flex; align-items:center; justify-content:center; padding:16px; }
+    .pos-login.hidden { display:none; }
+    .pos-login-box { background:#fff; border-radius:24px; padding:32px; width:min(400px,100%);
+      box-shadow:0 25px 50px rgba(0,0,0,.15); display:flex; flex-direction:column; }
+    .pos-login-brand { display:flex; align-items:center; gap:10px; font-weight:700;
+      font-size:1.15rem; color:#0f2e24; margin-bottom:24px; }
+    .pos-login-mark { background:#0f2e24; color:#fff; width:32px; height:32px;
+      border-radius:10px; display:flex; align-items:center; justify-content:center;
+      font-size:1.1rem; }
+    .pos-login-box h1 { font-size:1.25rem; font-weight:700; margin-bottom:6px; }
+    .pos-login-box p { font-size:.85rem; color:#75988a; margin-bottom:22px; }
+    .pos-login-box label { display:grid; gap:6px; font-size:.72rem; color:#75988a;
+      font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:14px; }
+    .pos-login-box input { border:1px solid #d0e2d8; padding:12px 14px; border-radius:10px;
+      font-size:.9rem; outline:none; font-family:inherit; background:#fff; }
+    .pos-login-box input:focus { border-color:#0f2e24; }
+    .pos-login-box button { padding:13px; border-radius:30px; border:none;
+      background:#0f2e24; color:#fff; font-weight:600; font-size:.88rem; cursor:pointer;
+      font-family:inherit; margin-top:8px; }
+    .pos-login-box button:hover { background:#1a4638; }
+    .pos-login-box small { text-align:center; color:#75988a; font-size:.72rem;
+      margin-top:14px; }
+
     @media (max-width:1200px) { .workspace { grid-template-columns:1fr 300px; } .product-grid { grid-template-columns:repeat(2,1fr); } }
     @media (max-width:900px) { .app-shell { flex-direction:column; height:auto; } .sidebar { width:100%; flex-direction:row; height:auto; } .workspace { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
+
+      <!-- Login overlay -->
+  <div id="pos-login" class="pos-login">
+    <form class="pos-login-box" id="pos-login-form" autocomplete="off">
+      <div class="pos-login-brand">
+        <span class="pos-login-mark">+</span>
+        <span>counterpoint</span>
+      </div>
+      <h1>Sign in to start selling</h1>
+      <p>Enter your cashier credentials to open the till.</p>
+      <label>Username<input name="username" required value="admin"></label>
+      <label>Password<input name="password" required type="password" placeholder="admin123"></label>
+      <button type="submit">Sign in →</button>
+      <small>Default: admin / admin123</small>
+    </form>
+  </div>
+
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>

@@ -64,13 +64,14 @@ async function saveForm(event, url, message) {
    LOAD EVERYTHING
    ============================================================ */
 async function loadAll() {
-  const [products, customers, suppliers, expenses, settings, categories] = await Promise.all([
+  const [products, customers, suppliers, expenses, settings, categories, users] = await Promise.all([
     request('/api/products'),
     request('/api/customers'),
     request('/api/suppliers'),
     request('/api/expenses'),
     request('/api/settings'),
-    request('/api/categories').catch(() => []),  // graceful fallback if table not ready
+    request('/api/categories').catch(() => []),
+    request('/api/users').catch(() => []),
   ]);
 
   /* ---- Products ---- */
@@ -125,6 +126,26 @@ async function loadAll() {
       ? '<div class="admin-row"><b>Icon</b><b>Name</b><b>Sort</b><b>Actions</b></div>' +
         categories.map((c) => `<div class="admin-row"><span style="font-size:1.4rem">${c.icon || '📦'}</span><span>${c.name}</span><span>${c.sort_order || 0}</span><span><button data-edit-cat="${c.id}">Edit</button><button data-delete-cat="${c.id}">Delete</button></span></div>`).join('')
       : '<p class="muted">No categories yet.</p>';
+  }
+
+  /* ---- Users list ---- */
+  const userList = $('#user-list');
+  if (userList) {
+    userList.innerHTML = users.length
+      ? '<div class="admin-row" style="grid-template-columns:1fr 1.3fr 1fr 1fr 1.6fr"><b>Username</b><b>Full name</b><b>Role</b><b>Status</b><b>Actions</b></div>' +
+        users.map((u) => `
+          <div class="admin-row" style="grid-template-columns:1fr 1.3fr 1fr 1fr 1.6fr">
+            <span><strong>${u.username}</strong></span>
+            <span>${u.full_name || '-'}</span>
+            <span><span class="pill ${u.role === 'admin' ? 'in' : 'sale'}">${u.role}</span></span>
+            <span><span class="pill ${u.active ? 'in' : 'out'}">${u.active ? 'Active' : 'Disabled'}</span></span>
+            <span>
+              <button data-edit-user="${u.id}">Edit</button>
+              <button data-toggle-user="${u.id}">${u.active ? 'Disable' : 'Enable'}</button>
+              <button data-delete-user="${u.id}">Delete</button>
+            </span>
+          </div>`).join('')
+      : '<p class="muted">No users yet.</p>';
   }
 
   /* ---- Populate product form's category dropdown ---- */
@@ -192,6 +213,54 @@ async function loadAll() {
       });
       await loadAll();
       showToast('Category updated');
+    } catch (e) { showToast(e.message); }
+  }));
+
+  /* ---- User edit/toggle/delete ---- */
+  $$('[data-edit-user]').forEach((b) => b.addEventListener('click', async () => {
+    const u = users.find((x) => x.id === Number(b.dataset.editUser));
+    if (!u) return;
+    const username = prompt('Username:', u.username);
+    if (username === null) return;
+    const full_name = prompt('Full name:', u.full_name || '');
+    const role = prompt('Role (admin / cashier):', u.role);
+    const newPassword = prompt('New password (leave blank to keep current):', '');
+    try {
+      await request(`/api/users/${u.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          full_name,
+          role,
+          ...(newPassword ? { password: newPassword } : {}),
+        }),
+      });
+      await loadAll();
+      showToast('User updated');
+    } catch (e) { showToast(e.message); }
+  }));
+
+  $$('[data-toggle-user]').forEach((b) => b.addEventListener('click', async () => {
+    const u = users.find((x) => x.id === Number(b.dataset.toggleUser));
+    if (!u) return;
+    try {
+      await request(`/api/users/${u.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !u.active }),
+      });
+      await loadAll();
+      showToast(u.active ? 'User disabled' : 'User enabled');
+    } catch (e) { showToast(e.message); }
+  }));
+
+  $$('[data-delete-user]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Delete this user?')) return;
+    try {
+      await request(`/api/users/${b.dataset.deleteUser}`, { method: 'DELETE' });
+      await loadAll();
+      showToast('User deleted');
     } catch (e) { showToast(e.message); }
   }));
 }
@@ -264,6 +333,30 @@ async function addCategory(event) {
 }
 
 /* ============================================================
+   ADD USER
+   ============================================================ */
+async function addUser(event) {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const payload = {
+    username: form.get('username'),
+    password: form.get('password'),
+    full_name: form.get('full_name'),
+    role: form.get('role'),
+  };
+  try {
+    await request('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    event.target.reset();
+    await loadAll();
+    showToast('User added');
+  } catch (e) { showToast(e.message); }
+}
+
+/* ============================================================
    ADMIN TAB SWITCHING
    ============================================================ */
 function setupTabs() {
@@ -298,6 +391,7 @@ $('#supplier-form').addEventListener('submit', (e) => saveForm(e, '/api/supplier
 $('#expense-form').addEventListener('submit', (e) => saveForm(e, '/api/expenses', 'Expense recorded'));
 $('#settings-form').addEventListener('submit', saveSettings);
 $('#category-form').addEventListener('submit', addCategory);
+$('#user-form').addEventListener('submit', addUser);
 $('#report-btn').addEventListener('click', runReport);
 $('#backup-btn').addEventListener('click', () => { window.location.href = '/api/backup'; });
 
