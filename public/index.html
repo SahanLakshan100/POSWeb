@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Counterpoint POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./cashier-modern.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">+</span><span>counterpoint</span></div>
+      <nav>
+        <a class="active" href="./"><span>⌁</span> New sale</a>
+        <a href="./products.html"><span>□</span> Products</a>
+        <a href="./sales.html"><span>↗</span> Sales history</a>
+        <a href="./inventory.html"><span>⚙</span> Admin</a>
+      </nav>
+      <div class="store-status">
+        <span class="status-dot"></span>
+        <div><strong>Main counter</strong><small>Open · Till 01</small></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div><p class="eyebrow">TODAY</p><h1>Good morning.</h1></div>
+        <button class="avatar" id="login-btn" title="Admin login">M</button>
+      </header>
+
+      <section class="stats" id="dashboard"></section>
+
+      <section class="workspace">
+        <div class="catalog-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">CATALOG</p><h2>Build an order</h2></div>
+            <div class="catalog-tools">
+              <label class="search"><span>⌕</span><input id="search" placeholder="Search products" autocomplete="off" /></label>
+              <button class="tool-btn primary" id="add-item-btn">+ Add item</button>
+            </div>
+          </div>
+          <div class="category-row">
+            <button class="category active" data-category="All">All items</button>
+            <button class="category" data-category="Coffee">Coffee</button>
+            <button class="category" data-category="Tea">Tea</button>
+            <button class="category" data-category="Bakery">Bakery</button>
+            <button class="category" data-category="Food">Food</button>
+          </div>
+          <div class="product-grid" id="products"></div>
+        </div>
+
+        <aside class="cart-panel">
+          <div class="cart-heading">
+            <div><p class="eyebrow">CURRENT ORDER</p><h2>Order</h2></div>
+            <button class="clear-btn" id="clear-cart">Clear</button>
+          </div>
+          <div class="cart-items" id="cart-items">
+            <div class="empty-cart"><span>+</span><p>Your order is empty</p><small>Select an item to get started</small></div>
+          </div>
+          <div class="checkout">
+            <div class="total-row"><span>Subtotal</span><strong id="subtotal">$0.00</strong></div>
+            <div class="total-row muted"><span>Tax</span><span id="tax">$0.00</span></div>
+            <div class="grand-total"><span>Total</span><strong id="total">$0.00</strong></div>
+            <div class="payment-row">
+              <button class="payment active" data-payment="Cash">Cash</button>
+              <button class="payment" data-payment="Card">Card</button>
+              <button class="payment" data-payment="Mobile">Mobile</button>
+            </div>
+            <button class="checkout-btn" id="checkout-btn">Complete sale <span>→</span></button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="history">
+        <div class="section-heading">
+          <div><p class="eyebrow">ACTIVITY</p><h2>Recent sales</h2></div>
+          <span class="live-label"><span class="status-dot"></span> Live</span>
+        </div>
+        <div class="sales-table" id="sales-table"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="product-modal">
+    <form class="modal" id="product-form">
+      <div class="modal-heading">
+        <div><p class="eyebrow">INVENTORY</p><h2>Add new item</h2></div>
+        <button type="button" class="modal-close" data-close-modal="product-modal">×</button>
+      </div>
+      <label>SKU / barcode<input name="sku" required placeholder="e.g. ESP-007" /></label>
+      <label>Item name<input name="name" required placeholder="e.g. Iced Mocha" /></label>
+      <div class="form-row">
+        <label>Category<select name="category"><option>Coffee</option><option>Tea</option><option>Bakery</option><option>Food</option><option>Other</option></select></label>
+        <label>Price<input name="price" required min="0" step="0.01" type="number" placeholder="0.00" /></label>
+        <label>Stock<input name="stock" required min="0" step="1" type="number" placeholder="0" /></label>
+      </div>
+      <button class="checkout-btn" type="submit">Save item <span>→</span></button>
+    </form>
+  </div>
+
+  <div class="modal-backdrop" id="login-modal">
+    <form class="modal" id="login-form">
+      <div class="modal-heading">
+        <div><p class="eyebrow">SECURITY</p><h2>Admin login</h2></div>
+        <button type="button" class="modal-close" data-close-modal="login-modal">×</button>
+      </div>
+      <label>Username<input name="username" required value="admin" /></label>
+      <label>Password<input name="password" required type="password" /></label>
+      <button class="checkout-btn" type="submit">Sign in <span>→</span></button>
+      <p class="muted">Default: admin / admin123</p>
+    </form>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
