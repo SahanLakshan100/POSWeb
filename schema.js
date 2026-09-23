@@ -97,6 +97,51 @@ export async function initDatabase() {
     await db.execute(sql);
   }
 
+  // ----------------------------------------------------------
+  // AUTO-MIGRATION: rebuild sale_items if product_id is NOT NULL
+  // ----------------------------------------------------------
+  // SQLite cannot remove NOT NULL via ALTER. To support custom items
+  // (product_id = NULL), we check the table info and rebuild if needed.
+  try {
+    const cols = await db.execute(`PRAGMA table_info(sale_items)`);
+    const productIdCol = cols.rows.find((c) => c.name === 'product_id');
+    const quantityCol = cols.rows.find((c) => c.name === 'quantity');
+
+    const needsProductIdFix = productIdCol && productIdCol.notnull === 1;
+    const needsQuantityFix = quantityCol && quantityCol.type === 'INTEGER';
+
+    if (needsProductIdFix || needsQuantityFix) {
+      console.log('🔧 Migrating sale_items: rebuilding table for NULL product_id + REAL quantity…');
+
+      await db.execute(`ALTER TABLE sale_items RENAME TO sale_items_old_migrate`);
+
+      await db.execute(`
+        CREATE TABLE sale_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sale_id INTEGER NOT NULL,
+          product_id INTEGER,
+          quantity REAL NOT NULL,
+          unit_price REAL NOT NULL,
+          line_total REAL NOT NULL
+        )
+      `);
+
+      await db.execute(`
+        INSERT INTO sale_items (id, sale_id, product_id, quantity, unit_price, line_total)
+        SELECT id, sale_id, product_id, quantity, unit_price, line_total
+        FROM sale_items_old_migrate
+      `);
+
+      await db.execute(`DROP TABLE sale_items_old_migrate`);
+
+      console.log('✅ sale_items migrated successfully');
+    } else {
+      console.log('✅ sale_items schema OK (product_id nullable, quantity REAL)');
+    }
+  } catch (e) {
+    console.warn('⚠️ sale_items migration check skipped:', e.message);
+  }
+
   // Safe column adds for existing tables (ignored if column already exists)
   const alters = [
     `ALTER TABLE products ADD COLUMN compare_price REAL DEFAULT 0`,
