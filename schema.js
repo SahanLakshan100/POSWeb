@@ -151,8 +151,6 @@ export async function initDatabase() {
     `ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'completed'`,
     `ALTER TABLE sales ADD COLUMN voided_at DATETIME`,
     `ALTER TABLE sale_items ADD COLUMN line_total REAL DEFAULT 0`,
-        `ALTER TABLE sales ADD COLUMN cashier_id INTEGER`,
-    `ALTER TABLE sales ADD COLUMN cashier_name TEXT`,
   ];
   for (const sql of alters) {
     try { await db.execute(sql); } catch { /* exists */ }
