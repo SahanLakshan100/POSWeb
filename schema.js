@@ -89,12 +89,17 @@ export async function initDatabase() {
   console.log('✅ Schema initialized on Turso');
 }
 
-initDatabase()
-  .then(() => {
-    console.log('✅ Done');
-    process.exit(0);
-  })
-  .catch((e) => {
-    console.error('❌ Failed:', e.message || e);
-    process.exit(1);
-  });
+// Only run automatically when this file is executed directly
+// (e.g. `node schema.js` or `npm run init-db`), not when imported by server.js
+const isDirectRun = process.argv[1] && process.argv[1].endsWith('schema.js');
+if (isDirectRun) {
+  initDatabase()
+    .then(() => {
+      console.log('✅ Done');
+      process.exit(0);
+    })
+    .catch((e) => {
+      console.error('❌ Failed:', e.message || e);
+      process.exit(1);
+    });
+}
