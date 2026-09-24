@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShopMate | Sales History</title>
+  <title>Counterpoint | Sales History</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
@@ -81,11 +81,14 @@
     /* Table */
     .table-card { background:#fff; border-radius:20px; padding:22px; border:1px solid #e9f0ec; }
     .table-card h2 { font-size:1.1rem; font-weight:600; margin-bottom:16px; }
-    .row { display:grid; grid-template-columns:1fr 1fr 1.5fr 1fr; gap:12px;
-      border-top:1px solid #e9f0ec; padding:14px 0; font-size:.82rem; align-items:center; }
-    .row.head { border-top:none; color:#75988a; font-size:.7rem;
+
+    /* Sale rows */
+    .sale-block { border-top:1px solid #e9f0ec; }
+    .sale-block:first-child { border-top:none; }
+    .sale-row { display:grid; padding:14px 0; font-size:.82rem; align-items:center; }
+    .sale-row:hover { background:#f9fdfb; }
+    .row.head { padding:8px 0; color:#75988a; font-size:.7rem;
       text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
-    .row small { display:block; color:#75988a; font-size:.72rem; margin-top:2px; }
     .row .receipt { font-weight:600; color:#0f2e24; }
     .row .total { font-weight:700; text-align:right; }
     .pill { display:inline-block; padding:3px 10px; border-radius:20px;
@@ -95,10 +98,78 @@
     .pill.mobile { background:#f3e8ff; color:#7e22ce; }
     .pill.voided { background:#fde8e8; color:#c53030; }
 
-    .summary-bar { display:flex; gap:20px; padding:16px 22px; background:#f2f9f6;
-      border-radius:16px; margin-bottom:18px; border:1px solid #e2ece6; flex-wrap:wrap; }
-    .summary-bar div { font-size:.85rem; }
-    .summary-bar strong { font-size:1.1rem; font-weight:700; }
+    /* Sale item summary */
+    .sale-items-summary {
+      font-size:.78rem;
+      color:#0f2e24;
+      background:#f2f9f6;
+      border-radius:8px;
+      padding:6px 10px;
+      margin-bottom:4px;
+    }
+    .sale-cashier {
+      font-size:.72rem;
+      color:#75988a;
+      padding:0 0 8px 10px;
+      margin-bottom:4px;
+    }
+
+    /* Sale detail panel */
+    .sale-detail {
+      background:#f9fdfb;
+      border-radius:12px;
+      padding:14px 16px;
+      margin-bottom:10px;
+    }
+    .detail-items { font-size:.82rem; }
+    .detail-head {
+      display:grid;
+      grid-template-columns:2fr 1fr 1fr 1fr;
+      gap:10px;
+      color:#75988a;
+      font-size:.68rem;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      font-weight:600;
+      padding-bottom:8px;
+      border-bottom:1px solid #e2ece6;
+      margin-bottom:8px;
+    }
+    .detail-row {
+      display:grid;
+      grid-template-columns:2fr 1fr 1fr 1fr;
+      gap:10px;
+      padding:8px 0;
+      align-items:center;
+    }
+    .detail-row.custom { background:#fff9e6; border-radius:6px; padding-left:8px; padding-right:8px; }
+    .detail-row small { color:#75988a; font-size:.7rem; display:block; }
+    .detail-row span:last-child { text-align:right; font-weight:600; }
+
+    .detail-summary {
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      padding-top:10px;
+      margin-top:10px;
+      border-top:1px dashed #d0e2d8;
+      max-width:260px;
+      margin-left:auto;
+    }
+    .detail-summary > div {
+      display:flex;
+      justify-content:space-between;
+      font-size:.8rem;
+      color:#2b4d40;
+    }
+    .detail-summary .grand {
+      font-weight:700;
+      font-size:.95rem;
+      color:#0f2e24;
+      padding-top:6px;
+      border-top:1px solid #e2ece6;
+    }
+    .print-btn:hover { background:#1a4638 !important; }
 
     .empty-state { text-align:center; padding:40px 0; color:#75988a; font-size:.85rem; }
 
@@ -112,14 +183,12 @@
       .app-shell { flex-direction:column; }
       .sidebar { width:100%; flex-direction:row; flex-wrap:wrap; }
       .metric-row { grid-template-columns:repeat(2, 1fr); }
-      .row { grid-template-columns:1fr 1fr; }
     }
   </style>
 </head>
 <body data-page="sales">
 
   <!-- Login screen -->
-  <body data-page="products">
   <div id="login" class="login">
     <div class="login-box">
       <h2>Admin login</h2>
@@ -130,7 +199,6 @@
       </form>
     </div>
   </div>
- 
 
   <div class="app-shell">
     <aside class="sidebar">
