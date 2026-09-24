@@ -1,7 +1,7 @@
 const page = document.body.dataset.page;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-const money = (v) => `$${Number(v).toFixed(2)}`;
+const money = (v) => `Rs. ${Number(v).toFixed(2)}`;
 
 const toast = (msg) => {
   const n = $('#toast');
